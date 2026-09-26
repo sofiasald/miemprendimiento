@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/inventario_provider.dart';
-import 'screens/main_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Roboto', // Ajustable según necesidad
         ),
-        home: const MainScreen(),
+        home: const SplashScreen(),
       ),
     );
   }
