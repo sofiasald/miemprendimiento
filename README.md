@@ -1,17 +1,11 @@
-# miemprendimiento
+# App de Gestión para Emprendimiento
 
-A new Flutter project.
+App de gestión con Flutter y SQLite.
 
-## Getting Started
+## Manejo de Estado (Regla del Equipo)
 
-This project is a starting point for a Flutter application.
+**Provider elegido:** `provider`
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+**Reglas de uso:**
+Todo dato que se muestra en más de una pantalla vive en un Provider, nunca en variables sueltas de una pantalla. 
+⚠️ Cuidado: No usar `setState` local para guardar datos que se comparten para "ir más rápido", ya que ese dato se va a desincronizar del resto de la app.
