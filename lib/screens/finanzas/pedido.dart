@@ -1,5 +1,3 @@
-import 'package:uuid/uuid.dart';
-
 /// Un pedido a entregar en el futuro. NO descuenta stock todavía: eso ocurre
 /// recién cuando se marca como "Entregado" (Sprint 5), momento en el que se
 /// convierte en una Venta.
@@ -26,7 +24,7 @@ class Pedido {
          productoId != null || comboId != null,
          'Un pedido debe referenciar un producto o un combo',
        ),
-       id = id ?? const Uuid().v4();
+       id = id ?? DateTime.now().microsecondsSinceEpoch.toString();
 
   Map<String, dynamic> toMap() => {
     'id': id,

@@ -1,4 +1,3 @@
-import 'package:uuid/uuid.dart';
 
 /// Un gasto registrado: compra de un material (o una variante puntual)
 /// que aumenta su stock.
@@ -23,7 +22,7 @@ class Gasto {
     required this.monto,
     DateTime? fecha,
     this.visible = true,
-  })  : id = id ?? const Uuid().v4(),
+  })  : id = id ?? '',
         fecha = fecha ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
@@ -39,7 +38,7 @@ class Gasto {
       };
 
   factory Gasto.fromMap(Map<String, dynamic> m) => Gasto(
-        id: m['id'] as String,
+        id: m['id'] as String? ?? '',
         materialId: m['materialId'] as String,
         materialNombre: m['materialNombre'] as String,
         varianteId: m['varianteId'] as String?,
