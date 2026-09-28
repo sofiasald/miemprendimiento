@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'inventario/inventario_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -26,37 +25,110 @@ class _MainScreenState extends State<MainScreen> {
         index: _currentIndex,
         children: _pantallas,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.black87,
-        unselectedItemColor: const Color(0xFFF9C4D8),
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home, size: 30, color: _currentIndex == 0 ? Colors.black87 : const Color(0xFFF9C4D8)),
-            label: '',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  index: 0,
+                  icon: Icons.home_rounded,
+                  label: 'Inicio',
+                ),
+                _buildNavItem(
+                  index: 1,
+                  icon: Icons.inventory_2_rounded,
+                  label: 'Inventario',
+                ),
+                _buildNavItem(
+                  index: 2,
+                  icon: Icons.payments_rounded,
+                  label: 'Finanzas',
+                ),
+                _buildNavItem(
+                  index: 3,
+                  icon: Icons.settings_rounded,
+                  label: 'Ajustes',
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2, size: 30, color: _currentIndex == 1 ? Colors.black87 : const Color(0xFFF9C4D8)),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.sackDollar, size: 28, color: _currentIndex == 2 ? Colors.black87 : const Color(0xFFF9C4D8)),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings, size: 30, color: _currentIndex == 3 ? Colors.black87 : const Color(0xFFF9C4D8)),
-            label: '',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final bool isSelected = _currentIndex == index;
+
+    // Colores según la referencia visual
+    final Color pillBackground = isSelected
+        ? const Color(0xFFFFC6E5) // Fondo rosado suave
+        : const Color(0xFFEDF3F8); // Fondo grisáceo claro / celeste pálido
+
+    final Color iconColor = isSelected
+        ? const Color(0xFFE23D80) // Rosado vivo
+        : const Color(0xFF6B7280); // Gris neutro
+
+    final Color textColor = isSelected
+        ? const Color(0xFFE23D80) // Texto en rosado
+        : const Color(0xFF6B7280); // Texto en gris
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      borderRadius: BorderRadius.circular(20),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 64,
+              height: 36,
+              decoration: BoxDecoration(
+                color: pillBackground,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
