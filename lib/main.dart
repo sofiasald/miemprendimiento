@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'providers/inventario_provider.dart';
 import 'screens/splash_screen.dart';
 
@@ -13,9 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => InventarioProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => InventarioProvider())],
       child: MaterialApp(
         title: 'Mi Emprendimiento',
         debugShowCheckedModeBanner: false,
@@ -24,6 +23,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Roboto', // Ajustable según necesidad
         ),
+
         home: const SplashScreen(),
       ),
     );
