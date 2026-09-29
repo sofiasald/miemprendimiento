@@ -6,6 +6,7 @@ import '../../models/pedido.dart';
 import '../../models/producto.dart';
 import '../../models/combo.dart';
 import 'seleccionar_producto_combo_modal.dart';
+import '../providers/finanzas_provider.dart';
 
 class NuevoPedidoScreen extends StatefulWidget {
   const NuevoPedidoScreen({super.key});
@@ -118,7 +119,7 @@ class _NuevoPedidoScreenState extends State<NuevoPedidoScreen> {
       fechaEntrega: DateFormat('yyyy-MM-dd').format(_fechaEntrega!),
     );
 
-    await context.read<dynamic>().registrarPedido(pedido);
+    await context.read<FinanzasProvider>().registrarPedido(pedido);
 
     if (!mounted) return;
     Navigator.pop(context, true);
