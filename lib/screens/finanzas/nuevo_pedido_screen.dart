@@ -6,7 +6,7 @@ import '../../models/pedido.dart';
 import '../../models/producto.dart';
 import '../../models/combo.dart';
 import 'seleccionar_producto_combo_modal.dart';
-import '../providers/finanzas_provider.dart';
+import '../../providers/finanzas_provider.dart';
 
 class NuevoPedidoScreen extends StatefulWidget {
   const NuevoPedidoScreen({super.key});
@@ -110,14 +110,15 @@ class _NuevoPedidoScreenState extends State<NuevoPedidoScreen> {
 
     // Paso 7: el pedido se guarda SIN tocar el stock. Eso pasa recién cuando
     // se marca como "Entregado" (Sprint 5), momento en que se convierte en venta.
-    final pedido = Pedido(
-      productoId: _itemTipo == 'producto'
-          ? _itemSeleccionado.id as String
-          : null,
-      comboId: _itemTipo == 'combo' ? _itemSeleccionado.id as String : null,
-      cliente: _clienteCtrl.text.trim(),
-      fechaEntrega: DateFormat('yyyy-MM-dd').format(_fechaEntrega!),
-    );
+
+      final pedido = Pedido(
+        productoId: _itemTipo == 'producto' ? _itemSeleccionado.id as String : null,
+        comboId: _itemTipo == 'combo' ? _itemSeleccionado.id as String : null,
+        nombreItem: _itemSeleccionado.nombre as String,
+        cliente: _clienteCtrl.text.trim(),
+        monto: monto,
+        fechaEntrega: _fechaEntrega!, // Pasamos el DateTime directamente
+      );
 
     await context.read<FinanzasProvider>().registrarPedido(pedido);
 

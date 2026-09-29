@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../providers/inventario_provider.dart';
 
 import '../../models/venta.dart';
@@ -587,7 +586,7 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
             ),
             const SizedBox(height: 5),
             DropdownButtonFormField<String>(
-              value: _variantesSeleccionadas[c.materialId],
+              initialValue: _variantesSeleccionadas[c.materialId],
               isExpanded: true,
               decoration: InputDecoration(
                 filled: true,
@@ -669,29 +668,22 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
         ),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
-          value: _varianteGastoId,
+          initialValue: _varianteGastoId,
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 15,
-              vertical: 12,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.black12),
+              borderSide: const BorderSide(color: Colors.grey),
             ),
           ),
           hint: const Text('Elegir variante'),
-          items: variantes
-              .map(
-                (v) => DropdownMenuItem<String>(
-                  value: v.id,
-                  child: Text(v.nombre),
-                ),
-              )
-              .toList(),
+          items: variantes.map((v) => DropdownMenuItem<String>(
+            value: v.id ?? '', // Garantizamos que no sea nulo
+            child: Text(v.nombre),
+          )).toList(),
           onChanged: (val) => setState(() => _varianteGastoId = val),
         ),
       ],

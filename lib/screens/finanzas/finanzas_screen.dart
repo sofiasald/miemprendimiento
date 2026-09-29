@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
-import '../providers/finanzas_provider.dart';
+import '../../providers/finanzas_provider.dart';
 import 'nuevo_movimiento_screen.dart';
 import 'nuevo_pedido_screen.dart';
 
@@ -57,8 +56,9 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
                     builder: (_) => const NuevoMovimientoScreen(),
                   ),
                 );
-                if (res == true)
+                if (res == true) {
                   _mostrarConfirmacion('Movimiento guardado correctamente');
+                }
               },
             ),
             ListTile(
