@@ -3,7 +3,36 @@ import 'package:provider/provider.dart';
 
 import 'nuevo_movimiento_screen.dart';
 import 'nuevo_pedido_screen.dart';
-import 'finanzas_provider.dart';
+
+class Venta {
+  final String fecha;
+  final double monto;
+
+  const Venta({required this.fecha, required this.monto});
+}
+
+class Gasto {
+  final String fecha;
+  final double monto;
+
+  const Gasto({required this.fecha, required this.monto});
+}
+
+class Pedido {
+  final String fechaEntrega;
+
+  const Pedido({required this.fechaEntrega});
+}
+
+class FinanzasProvider extends ChangeNotifier {
+  final List<Venta> ventas = [];
+  final List<Gasto> gastos = [];
+  final List<Pedido> pedidos = [];
+
+  Future<void> cargarVentas() async {}
+  Future<void> cargarGastos() async {}
+  Future<void> cargarPedidos() async {}
+}
 
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});

@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/inventario_provider.dart';
-//import '../../providers/finanzas_provider.dart';
-import 'finanzas_provider.dart';
+import '../providers/finanzas_provider.dart';
+
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
-//import '../../models/material_consumo.dart';
-import 'material_consumo.dart';
 import '../../models/producto.dart';
 import '../../models/combo.dart';
 import '../../models/material.dart';
@@ -226,19 +224,13 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
         consumos.add(
           MaterialConsumo(
             materialId: c.materialId,
-            materialNombre: c.materialNombre,
             varianteId: variante.id,
-            varianteNombre: variante.nombre,
             cantidad: c.cantidad,
           ),
         );
       } else {
         consumos.add(
-          MaterialConsumo(
-            materialId: c.materialId,
-            materialNombre: c.materialNombre,
-            cantidad: c.cantidad,
-          ),
+          MaterialConsumo(materialId: c.materialId, cantidad: c.cantidad),
         );
       }
     }
@@ -251,11 +243,19 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
     );
     if (faltantes.isNotEmpty) {
       final nombres = faltantes
-          .map(
-            (f) => f.varianteNombre != null
-                ? '${f.materialNombre} (${f.varianteNombre})'
-                : f.materialNombre,
-          )
+          .map((f) {
+            final material = consumosBase.firstWhere(
+              (c) => c.materialId == f.materialId,
+            );
+            final varianteNombre = f.varianteId == null
+                ? null
+                : (inventario.variantes[f.materialId] ?? [])
+                      .firstWhere((v) => v.id == f.varianteId)
+                      .nombre;
+            return varianteNombre != null
+                ? '${material.materialNombre} ($varianteNombre)'
+                : material.materialNombre;
+          })
           .join(', ');
       _mostrarAlerta('No hay stock suficiente de: $nombres.');
       return;

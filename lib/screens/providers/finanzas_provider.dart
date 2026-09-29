@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 
-import 'material_consumo.dart';
 import '../../services/db_helper.dart';
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
 import '../../models/pedido.dart';
-//import '../../models/material_consumo.dart';
 import '../../models/material.dart';
 import '../../models/variante.dart';
+
+/// Consumo de material asociado a una venta.
+///
+/// Se mantiene aquí porque el archivo `material_consumo.dart` no existe en el
+/// proyecto y este proveedor solo necesita estos tres campos.
+class MaterialConsumo {
+  final dynamic materialId;
+  final dynamic varianteId;
+  final double cantidad;
+
+  const MaterialConsumo({
+    required this.materialId,
+    this.varianteId,
+    required this.cantidad,
+  });
+}
 
 enum TipoMovimiento { venta, gasto }
 

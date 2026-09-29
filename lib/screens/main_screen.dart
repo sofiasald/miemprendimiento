@@ -1,165 +1,286 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import 'inventario/inventario_screen.dart';
-import 'finanzas/finanzas_screen.dart';
+class FinanzasProvider extends ChangeNotifier {
+  final List<Venta> ventas = [];
+  final List<Gasto> gastos = [];
+  final List<Pedido> pedidos = [];
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
-
-  @override
-  State<MainScreen> createState() => _MainScreenState();
+  Future<void> cargarVentas() async {}
+  Future<void> cargarGastos() async {}
+  Future<void> cargarPedidos() async {}
 }
 
-class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 1; // Por defecto abre el Inventario (índice 1)
+class Venta {
+  final String nombreItem;
+  final DateTime fecha;
+  final double monto;
 
-  final List<Widget> _pantallas = [
-    const _EnConstruccionScreen(titulo: 'Inicio'),
-    const InventarioScreen(),
-    const FinanzasScreen(),
-    const _EnConstruccionScreen(titulo: 'Ajustes'),
-  ];
+  Venta({this.nombreItem = '', required this.fecha, required this.monto});
+}
+
+class Gasto {
+  final String materialNombre;
+  final DateTime fecha;
+  final double monto;
+
+  Gasto({this.materialNombre = '', required this.fecha, required this.monto});
+}
+
+class Pedido {
+  final String nombreItem;
+  final DateTime fechaEntrega;
+  final double monto;
+
+  Pedido({
+    this.nombreItem = '',
+    required this.fechaEntrega,
+    required this.monto,
+  });
+}
+
+class NuevoMovimientoScreen extends StatelessWidget {
+  const NuevoMovimientoScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Nuevo movimiento')),
+    body: const SizedBox.shrink(),
+  );
+}
+
+class NuevoPedidoScreen extends StatelessWidget {
+  const NuevoPedidoScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Nuevo pedido')),
+    body: const SizedBox.shrink(),
+  );
+}
+
+class FinanzasScreen extends StatefulWidget {
+  const FinanzasScreen({super.key});
+
+  @override
+  State<FinanzasScreen> createState() => _FinanzasScreenState();
+}
+
+class _FinanzasScreenState extends State<FinanzasScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = context.read<FinanzasProvider>();
+      p.cargarVentas();
+      p.cargarGastos();
+      p.cargarPedidos();
+    });
+  }
+
+  Future<void> _abrirNuevoMovimiento() async {
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const NuevoMovimientoScreen()),
+    );
+    if (ok == true && mounted) {
+      context.read<FinanzasProvider>().cargarVentas();
+      context.read<FinanzasProvider>().cargarGastos();
+    }
+  }
+
+  Future<void> _abrirNuevoPedido() async {
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const NuevoPedidoScreen()),
+    );
+    if (ok == true && mounted) {
+      context.read<FinanzasProvider>().cargarPedidos();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final finanzas = context.watch<FinanzasProvider>();
+
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pantallas),
-      bottomNavigationBar: Container(
+      backgroundColor: const Color(0xFFF9F9F9),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text(
+              'Finanzas',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+
+            // Botones de acción
+            Row(
+              children: [
+                Expanded(
+                  child: _AccionCard(
+                    icon: Icons.point_of_sale,
+                    titulo: 'Nuevo\nMovimiento',
+                    onTap: _abrirNuevoMovimiento,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _AccionCard(
+                    icon: Icons.calendar_month,
+                    titulo: 'Nuevo\nPedido',
+                    onTap: _abrirNuevoPedido,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 30),
+
+            const Text(
+              'ÚLTIMOS MOVIMIENTOS',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black54,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            if (finanzas.ventas.isEmpty &&
+                finanzas.gastos.isEmpty &&
+                finanzas.pedidos.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Text(
+                    'Todavía no hay movimientos.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ),
+              )
+            else ...[
+              ...finanzas.pedidos.map(
+                (p) => _TileMovimiento(
+                  titulo: p.nombreItem.isEmpty ? 'Pedido' : p.nombreItem,
+                  subtitulo:
+                      'Pedido · entrega ${p.fechaEntrega.day}/${p.fechaEntrega.month}/${p.fechaEntrega.year}',
+                  monto: p.monto,
+                  colorMonto: Colors.blueGrey,
+                ),
+              ),
+              ...finanzas.ventas.map(
+                (v) => _TileMovimiento(
+                  titulo: v.nombreItem.isEmpty ? 'Venta' : v.nombreItem,
+                  subtitulo:
+                      'Venta · ${v.fecha.day}/${v.fecha.month}/${v.fecha.year}',
+                  monto: v.monto,
+                  colorMonto: Colors.green,
+                ),
+              ),
+              ...finanzas.gastos.map(
+                (g) => _TileMovimiento(
+                  titulo: g.materialNombre.isEmpty ? 'Gasto' : g.materialNombre,
+                  subtitulo:
+                      'Gasto · ${g.fecha.day}/${g.fecha.month}/${g.fecha.year}',
+                  monto: -g.monto,
+                  colorMonto: Colors.red,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccionCard extends StatelessWidget {
+  final IconData icon;
+  final String titulo;
+  final VoidCallback onTap;
+
+  const _AccionCard({
+    required this.icon,
+    required this.titulo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFE23D80);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 15),
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 35),
+            const SizedBox(height: 10),
+            Text(
+              titulo,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ],
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+      ),
+    );
+  }
+}
+
+class _TileMovimiento extends StatelessWidget {
+  final String titulo;
+  final String subtitulo;
+  final double monto;
+  final Color colorMonto;
+
+  const _TileMovimiento({
+    required this.titulo,
+    required this.subtitulo,
+    required this.monto,
+    required this.colorMonto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildNavItem(
-                  index: 0,
-                  icon: Icons.home_rounded,
-                  label: 'Inicio',
+                Text(
+                  titulo,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                _buildNavItem(
-                  index: 1,
-                  icon: Icons.inventory_2_rounded,
-                  label: 'Inventario',
-                ),
-                _buildNavItem(
-                  index: 2,
-                  icon: Icons.payments_rounded,
-                  label: 'Finanzas',
-                ),
-                _buildNavItem(
-                  index: 3,
-                  icon: Icons.settings_rounded,
-                  label: 'Ajustes',
+                const SizedBox(height: 3),
+                Text(
+                  subtitulo,
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final bool isSelected = _currentIndex == index;
-
-    // Colores según la referencia visual
-    final Color pillBackground = isSelected
-        ? const Color(0xFFFFC6E5) // Fondo rosado suave
-        : const Color(0xFFEDF3F8); // Fondo grisáceo claro / celeste pálido
-
-    final Color iconColor = isSelected
-        ? const Color(0xFFE23D80) // Rosado vivo
-        : const Color(0xFF6B7280); // Gris neutro
-
-    final Color textColor = isSelected
-        ? const Color(0xFFE23D80) // Texto en rosado
-        : const Color(0xFF6B7280); // Texto en gris
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
-      },
-      borderRadius: BorderRadius.circular(20),
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 64,
-              height: 36,
-              decoration: BoxDecoration(
-                color: pillBackground,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: textColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EnConstruccionScreen extends StatelessWidget {
-  final String titulo;
-  const _EnConstruccionScreen({required this.titulo});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.build_circle_outlined,
-                size: 80,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '$titulo\n(En construcción)',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          Text(
+            '\$ ${monto.abs().toStringAsFixed(0)}',
+            style: TextStyle(fontWeight: FontWeight.bold, color: colorMonto),
           ),
-        ),
+        ],
       ),
     );
   }
