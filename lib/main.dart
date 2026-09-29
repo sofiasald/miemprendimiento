@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/inventario_provider.dart';
+import 'providers/finanzas_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() {
@@ -14,13 +15,17 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => InventarioProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => InventarioProvider()),
+        ChangeNotifierProvider(create: (_) => FinanzasProvider()),
+      ],
       child: MaterialApp(
         title: 'Mi Emprendimiento',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFEC6294)),
           useMaterial3: true,
+          fontFamily: 'PlusJakartaSans',
         ),
         home: const SplashScreen(),
       ),
