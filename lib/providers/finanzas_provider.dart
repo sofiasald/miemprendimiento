@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
+// Sube solo un nivel (providers -> lib -> services) A
 import '../services/db_helper.dart';
+
+// Sube solo un nivel (providers -> lib -> models) A
 import '../models/venta.dart';
 import '../models/gasto.dart';
 import '../models/pedido.dart';

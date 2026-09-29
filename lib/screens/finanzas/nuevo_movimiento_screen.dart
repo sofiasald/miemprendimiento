@@ -495,16 +495,22 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
         const Text('¿A qué variante le sumás stock? *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
-          value: _varianteGastoId,
+          initialValue: _varianteGastoId,
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.grey),
+            ),
           ),
           hint: const Text('Elegir variante'),
-          items: variantes.map((v) => DropdownMenuItem(value: v.id, child: Text(v.nombre))).toList(),
+          items: variantes.map((v) => DropdownMenuItem<String>(
+            value: v.id ?? '', // Garantizamos que no sea nulo
+            child: Text(v.nombre),
+          )).toList(),
           onChanged: (val) => setState(() => _varianteGastoId = val),
         ),
       ],
