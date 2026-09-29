@@ -591,7 +591,7 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
               hint: const Text('Elegir variante'),
               items: variantes
                   .map(
-                    (v) => DropdownMenuItem(
+                    (v) => DropdownMenuItem<String>(
                       value: v.id,
                       child: Text(
                         '${v.nombre} (stock: ${v.cantidad.toStringAsFixed(0)})',

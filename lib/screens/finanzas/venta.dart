@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 /// Una venta registrada. Referencia un Producto O un Combo (nunca ambos) y
 /// guarda una "foto" del nombre y el monto al momento de vender, para que el
 /// historial no cambie si el precio del producto se edita después.
@@ -18,7 +20,11 @@ class Venta {
     required this.monto,
     DateTime? fecha,
     this.visible = true,
-  }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+  }) : assert(
+         productoId != null || comboId != null,
+         'Una venta debe referenciar un producto o un combo',
+       ),
+       id = id ?? const Uuid().v4(),
        fecha = fecha ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {

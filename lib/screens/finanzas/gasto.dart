@@ -1,3 +1,4 @@
+import 'package:uuid/uuid.dart';
 
 /// Un gasto registrado: compra de un material (o una variante puntual)
 /// que aumenta su stock.
@@ -22,30 +23,30 @@ class Gasto {
     required this.monto,
     DateTime? fecha,
     this.visible = true,
-  })  : id = id ?? '',
-        fecha = fecha ?? DateTime.now();
+  }) : id = id ?? const Uuid().v4(),
+       fecha = fecha ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'materialId': materialId,
-        'materialNombre': materialNombre,
-        'varianteId': varianteId,
-        'varianteNombre': varianteNombre,
-        'cantidad': cantidad,
-        'monto': monto,
-        'fecha': fecha.toIso8601String(),
-        'visible': visible ? 1 : 0,
-      };
+    'id': id,
+    'materialId': materialId,
+    'materialNombre': materialNombre,
+    'varianteId': varianteId,
+    'varianteNombre': varianteNombre,
+    'cantidad': cantidad,
+    'monto': monto,
+    'fecha': fecha.toIso8601String(),
+    'visible': visible ? 1 : 0,
+  };
 
   factory Gasto.fromMap(Map<String, dynamic> m) => Gasto(
-        id: m['id'] as String? ?? '',
-        materialId: m['materialId'] as String,
-        materialNombre: m['materialNombre'] as String,
-        varianteId: m['varianteId'] as String?,
-        varianteNombre: m['varianteNombre'] as String?,
-        cantidad: (m['cantidad'] as num).toDouble(),
-        monto: (m['monto'] as num).toDouble(),
-        fecha: DateTime.parse(m['fecha'] as String),
-        visible: m['visible'] == 1,
-      );
+    id: m['id'] as String,
+    materialId: m['materialId'] as String,
+    materialNombre: m['materialNombre'] as String,
+    varianteId: m['varianteId'] as String?,
+    varianteNombre: m['varianteNombre'] as String?,
+    cantidad: (m['cantidad'] as num).toDouble(),
+    monto: (m['monto'] as num).toDouble(),
+    fecha: DateTime.parse(m['fecha'] as String),
+    visible: m['visible'] == 1,
+  );
 }

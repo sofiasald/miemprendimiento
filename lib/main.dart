@@ -21,9 +21,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFEC6294)),
           useMaterial3: true,
-          fontFamily: 'Roboto', // Ajustable según necesidad
         ),
-
         home: const SplashScreen(),
       ),
     );
