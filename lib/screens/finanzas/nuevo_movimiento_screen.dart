@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/inventario_provider.dart';
-import '../providers/finanzas_provider.dart';
 
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
@@ -11,6 +10,20 @@ import '../../models/combo.dart';
 import '../../models/material.dart';
 import '../inventario/nuevo_producto_screen.dart' show SeleccionarMaterialModal;
 import 'seleccionar_producto_combo_modal.dart';
+
+enum TipoMovimiento { venta, gasto }
+
+class MaterialConsumo {
+  final String materialId;
+  final String? varianteId;
+  final double cantidad;
+
+  MaterialConsumo({
+    required this.materialId,
+    this.varianteId,
+    required this.cantidad,
+  });
+}
 
 class NuevoMovimientoScreen extends StatefulWidget {
   const NuevoMovimientoScreen({super.key});
@@ -185,7 +198,7 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
 
   Future<void> _guardar() async {
     final inventario = context.read<InventarioProvider>();
-    final finanzas = context.read<FinanzasProvider>();
+    final finanzas = context.read<dynamic>();
 
     if (_tipo == TipoMovimiento.venta) {
       await _guardarVenta(inventario, finanzas);
@@ -196,7 +209,7 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
 
   Future<void> _guardarVenta(
     InventarioProvider inventario,
-    FinanzasProvider finanzas,
+    dynamic finanzas,
   ) async {
     if (_itemSeleccionado == null) {
       _mostrarAlerta('Elegí qué producto o combo vendiste.');
@@ -283,7 +296,7 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
 
   Future<void> _guardarGasto(
     InventarioProvider inventario,
-    FinanzasProvider finanzas,
+    dynamic finanzas,
   ) async {
     if (_materialSeleccionado == null) {
       _mostrarAlerta('Elegí qué material compraste.');
