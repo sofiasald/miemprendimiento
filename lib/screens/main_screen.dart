@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'inventario/inventario_screen.dart';
-import 'finanzas/pantalla_screen.dart';
+import 'finanzas/finanzas_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
