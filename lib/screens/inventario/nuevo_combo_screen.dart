@@ -147,7 +147,7 @@ class _NuevoComboScreenState extends State<NuevoComboScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9C4D8).withOpacity(0.3),
+                          color: const Color(0xFFF9C4D8).withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: const Color(0xFFF9C4D8), style: BorderStyle.solid), // Simular dashed si es complejo, o usar solido claro
                         ),
@@ -229,7 +229,7 @@ class _NuevoComboScreenState extends State<NuevoComboScreen> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ),

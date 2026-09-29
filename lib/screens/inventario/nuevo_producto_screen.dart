@@ -24,7 +24,7 @@ class _NuevoProductoScreenState extends State<NuevoProductoScreen> {
   final _nombreFocus = FocusNode();
   final _precioFocus = FocusNode();
 
-  List<ProductoMaterialForm> _insumos = [];
+  final List<ProductoMaterialForm> _insumos = [];
 
   bool get _esEdicion => widget.productoAEditar != null;
 
