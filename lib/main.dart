@@ -11,14 +11,12 @@ void main() {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => InventarioProvider()),
-        ChangeNotifierProvider(create: (_) => FinanzasProvider(),
-         ),
+        ChangeNotifierProvider(create: (_) => FinanzasProvider()),
       ],
       child: MaterialApp(
         title: 'Mi Emprendimiento',
