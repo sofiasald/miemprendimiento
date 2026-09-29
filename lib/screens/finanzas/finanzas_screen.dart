@@ -24,16 +24,6 @@ class Pedido {
   const Pedido({required this.fechaEntrega});
 }
 
-class FinanzasProvider extends ChangeNotifier {
-  final List<Venta> ventas = [];
-  final List<Gasto> gastos = [];
-  final List<Pedido> pedidos = [];
-
-  Future<void> cargarVentas() async {}
-  Future<void> cargarGastos() async {}
-  Future<void> cargarPedidos() async {}
-}
-
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});
 
@@ -46,7 +36,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = context.read<FinanzasProvider>();
+      final p = context.read<dynamic>();
       p.cargarVentas();
       p.cargarGastos();
       p.cargarPedidos();
@@ -60,8 +50,8 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     );
     if (ok == true) {
       if (!mounted) return;
-      context.read<FinanzasProvider>().cargarVentas();
-      context.read<FinanzasProvider>().cargarGastos();
+      context.read<dynamic>().cargarVentas();
+      context.read<dynamic>().cargarGastos();
     }
   }
 
@@ -72,13 +62,13 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     );
     if (ok == true) {
       if (!mounted) return;
-      context.read<FinanzasProvider>().cargarPedidos();
+      context.read<dynamic>().cargarPedidos();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final finanzas = context.watch<FinanzasProvider>();
+    final finanzas = context.watch<dynamic>();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),

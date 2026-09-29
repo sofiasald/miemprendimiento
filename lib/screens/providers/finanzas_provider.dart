@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
-import 'material_consumo.dart';
 import '../../services/db_helper.dart';
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
 import '../../models/pedido.dart';
-//import '../../models/material_consumo.dart';
 import '../../models/material.dart';
 import '../../models/variante.dart';
+
+class MaterialConsumo {
+  final String materialId;
+  final String? varianteId;
+  final double cantidad;
+
+  MaterialConsumo({
+    required this.materialId,
+    this.varianteId,
+    required this.cantidad,
+  });
+}
 
 enum TipoMovimiento { venta, gasto }
 

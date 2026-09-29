@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/inventario_provider.dart';
+//import 'providers/finanzas_provider.dart' as finanzas_provider;
 import 'screens/splash_screen.dart';
 
 void main() {
@@ -16,6 +17,9 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => InventarioProvider()),
+        // ChangeNotifierProvider(
+        //   create: (_) => finanzas_provider.FinanzasProvider(),
+        // ),
       ],
       child: MaterialApp(
         title: 'Mi Emprendimiento',
