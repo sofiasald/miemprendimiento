@@ -116,16 +116,23 @@ class FinanzasProvider extends ChangeNotifier {
 
   Future<void> registrarGasto(Gasto gasto) async {
     final db = await DBHelper.instance.database;
-    final cantidadGasto =
-        (gasto.toMap()['cantidad'] as num?)?.toDouble() ?? 0.0;
+    final gastoMap = gasto.toMap();
+    final cantidadGasto = (gastoMap['cantidad'] as num?)?.toDouble() ?? 0.0;
+    final varianteId = gastoMap['varianteId'];
 
     await db.transaction((txn) async {
-      await txn.insert('gastos', gasto.toMap());
-
-      await txn.rawUpdate(
-        'UPDATE materiales SET cantidad = cantidad + ? WHERE id = ?',
-        [cantidadGasto, gasto.materialId],
-      );
+      await txn.insert('gastos', gastoMap);
+      if (varianteId != null) {
+        await txn.rawUpdate(
+          'UPDATE variantes SET cantidad = cantidad + ? WHERE id = ?',
+          [cantidadGasto, varianteId],
+        );
+      } else {
+        await txn.rawUpdate(
+          'UPDATE materiales SET cantidad = cantidad + ? WHERE id = ?',
+          [cantidadGasto, gasto.materialId],
+        );
+      }
     });
 
     gastos.insert(0, gasto);
