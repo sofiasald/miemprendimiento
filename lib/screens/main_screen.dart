@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'inventario/inventario_screen.dart';
+import 'finanzas/finanzas_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,17 +16,14 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pantallas = [
     const _EnConstruccionScreen(titulo: 'Inicio'),
     const InventarioScreen(),
-    const _EnConstruccionScreen(titulo: 'Finanzas / Ventas'),
+    const FinanzasScreen(),
     const _EnConstruccionScreen(titulo: 'Ajustes'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pantallas,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pantallas),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -112,11 +111,7 @@ class _MainScreenState extends State<MainScreen> {
                 color: pillBackground,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 22,
-              ),
+              child: Icon(icon, color: iconColor, size: 22),
             ),
             const SizedBox(height: 5),
             Text(
@@ -147,12 +142,20 @@ class _EnConstruccionScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.build_circle_outlined, size: 80, color: Colors.grey[400]),
+              Icon(
+                Icons.build_circle_outlined,
+                size: 80,
+                color: Colors.grey[400],
+              ),
               const SizedBox(height: 20),
               Text(
                 '$titulo\n(En construcción)',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54, fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),

@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/inventario_provider.dart';
-import '../../providers/finanzas_provider.dart';
+
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
-import '../../models/material_consumo.dart';
 import '../../models/producto.dart';
 import '../../models/combo.dart';
 import '../../models/material.dart';
 import '../inventario/nuevo_producto_screen.dart' show SeleccionarMaterialModal;
 import 'seleccionar_producto_combo_modal.dart';
+
+enum TipoMovimiento { venta, gasto }
+
+class MaterialConsumo {
+  final String materialId;
+  final String? varianteId;
+  final double cantidad;
+
+  MaterialConsumo({
+    required this.materialId,
+    this.varianteId,
+    required this.cantidad,
+  });
+}
 
 class NuevoMovimientoScreen extends StatefulWidget {
   const NuevoMovimientoScreen({super.key});
@@ -40,7 +53,8 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
   dynamic _itemSeleccionado; // Producto o Combo
   String? _itemTipo; // 'producto' | 'combo'
   final _montoVentaCtrl = TextEditingController();
-  final Map<String, String> _variantesSeleccionadas = {}; // materialId -> varianteId
+  final Map<String, String> _variantesSeleccionadas =
+      {}; // materialId -> varianteId
 
   // --- Gasto ---
   MaterialItem? _materialSeleccionado;
@@ -75,7 +89,9 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
       _itemSeleccionado = resultado;
       _itemTipo = resultado is Producto ? 'producto' : 'combo';
       _variantesSeleccionadas.clear();
-      final precio = resultado is Producto ? resultado.precio : (resultado as Combo).precio;
+      final precio = resultado is Producto
+          ? resultado.precio
+          : (resultado as Combo).precio;
       _montoVentaCtrl.text = precio.toStringAsFixed(0);
     });
   }
@@ -92,7 +108,11 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
       if (existente != null) {
         existente.cantidad += cantidad;
       } else {
-        acumulado[materialId] = _ConsumoRequerido(materialId: materialId, materialNombre: nombre, cantidad: cantidad);
+        acumulado[materialId] = _ConsumoRequerido(
+          materialId: materialId,
+          materialNombre: nombre,
+          cantidad: cantidad,
+        );
       }
     }
 
@@ -113,7 +133,11 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
           final insumos = inventario.insumosProductos[item.elementoId] ?? [];
           for (final i in insumos) {
             if (i.cantidad == null) continue;
-            agregar(i.materialId, i.materialNombre, i.cantidad! * multiplicador);
+            agregar(
+              i.materialId,
+              i.materialNombre,
+              i.cantidad! * multiplicador,
+            );
           }
         }
       }
@@ -150,12 +174,21 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text('Atención', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Atención',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text(mensaje),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Entendido', style: TextStyle(color: Color(0xFFEC6294), fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Entendido',
+              style: TextStyle(
+                color: Color(0xFFEC6294),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -164,7 +197,7 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
 
   Future<void> _guardar() async {
     final inventario = context.read<InventarioProvider>();
-    final finanzas = context.read<FinanzasProvider>();
+    final finanzas = context.read<dynamic>();
 
     if (_tipo == TipoMovimiento.venta) {
       await _guardarVenta(inventario, finanzas);
@@ -173,7 +206,10 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
     }
   }
 
-  Future<void> _guardarVenta(InventarioProvider inventario, FinanzasProvider finanzas) async {
+  Future<void> _guardarVenta(
+    InventarioProvider inventario,
+    dynamic finanzas,
+  ) async {
     if (_itemSeleccionado == null) {
       _mostrarAlerta('Elegí qué producto o combo vendiste.');
       return;
@@ -197,23 +233,41 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
           return;
         }
         final variante = variantes.firstWhere((v) => v.id == varianteId);
-        consumos.add(MaterialConsumo(
-          materialId: c.materialId,
-          materialNombre: c.materialNombre,
-          varianteId: variante.id,
-          varianteNombre: variante.nombre,
-          cantidad: c.cantidad,
-        ));
+        consumos.add(
+          MaterialConsumo(
+            materialId: c.materialId,
+            varianteId: variante.id,
+            cantidad: c.cantidad,
+          ),
+        );
       } else {
-        consumos.add(MaterialConsumo(materialId: c.materialId, materialNombre: c.materialNombre, cantidad: c.cantidad));
+        consumos.add(
+          MaterialConsumo(materialId: c.materialId, cantidad: c.cantidad),
+        );
       }
     }
 
     // Paso 4: validar stock ANTES de abrir la transacción
-    final faltantes = finanzas.validarStock(consumos, inventario.materiales, inventario.variantes);
+    final faltantes = finanzas.validarStock(
+      consumos,
+      inventario.materiales,
+      inventario.variantes,
+    );
     if (faltantes.isNotEmpty) {
       final nombres = faltantes
-          .map((f) => f.varianteNombre != null ? '${f.materialNombre} (${f.varianteNombre})' : f.materialNombre)
+          .map((f) {
+            final material = consumosBase.firstWhere(
+              (c) => c.materialId == f.materialId,
+            );
+            final varianteNombre = f.varianteId == null
+                ? null
+                : (inventario.variantes[f.materialId] ?? [])
+                      .firstWhere((v) => v.id == f.varianteId)
+                      .nombre;
+            return varianteNombre != null
+                ? '${material.materialNombre} ($varianteNombre)'
+                : material.materialNombre;
+          })
           .join(', ');
       _mostrarAlerta('No hay stock suficiente de: $nombres.');
       return;
@@ -222,26 +276,33 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
     setState(() => _guardando = true);
 
     final venta = Venta(
-      productoId: _itemTipo == 'producto' ? _itemSeleccionado.id as String : null,
+      productoId: _itemTipo == 'producto'
+          ? _itemSeleccionado.id as String
+          : null,
       comboId: _itemTipo == 'combo' ? _itemSeleccionado.id as String : null,
-      nombreItem: _itemSeleccionado.nombre as String,
       monto: monto,
+      fecha: DateTime.now().toIso8601String(),
     );
 
     // Paso 5: registrar venta dentro de una transacción que descuenta stock
     await finanzas.registrarVenta(venta, consumos);
-    await inventario.cargarMateriales(); // refresca el stock que se ve en Inventario
+    await inventario
+        .cargarMateriales(); // refresca el stock que se ve en Inventario
 
     if (!mounted) return;
     Navigator.pop(context, true);
   }
 
-  Future<void> _guardarGasto(InventarioProvider inventario, FinanzasProvider finanzas) async {
+  Future<void> _guardarGasto(
+    InventarioProvider inventario,
+    dynamic finanzas,
+  ) async {
     if (_materialSeleccionado == null) {
       _mostrarAlerta('Elegí qué material compraste.');
       return;
     }
-    final variantesDelMaterial = inventario.variantes[_materialSeleccionado!.id] ?? [];
+    final variantesDelMaterial =
+        inventario.variantes[_materialSeleccionado!.id] ?? [];
     if (variantesDelMaterial.isNotEmpty && _varianteGastoId == null) {
       _mostrarAlerta('Elegí a qué variante le sumás stock.');
       return;
@@ -260,17 +321,9 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
 
     setState(() => _guardando = true);
 
-    String? varianteNombre;
-    if (_varianteGastoId != null) {
-      varianteNombre = variantesDelMaterial.firstWhere((v) => v.id == _varianteGastoId).nombre;
-    }
-
     final gasto = Gasto(
+      fecha: DateTime.now().toIso8601String(),
       materialId: _materialSeleccionado!.id,
-      materialNombre: _materialSeleccionado!.nombre,
-      varianteId: _varianteGastoId,
-      varianteNombre: varianteNombre,
-      cantidad: cantidad,
       monto: monto,
     );
 
@@ -308,21 +361,37 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
                     child: const Icon(Icons.arrow_back_ios, size: 24),
                   ),
                   const SizedBox(width: 10),
-                  const Text('Nuevo movimiento', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Nuevo movimiento',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.only(left: 20, right: 20, top: 10, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 10,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Paso 1: selector de tipo
                     SegmentedButton<TipoMovimiento>(
                       segments: const [
-                        ButtonSegment(value: TipoMovimiento.venta, label: Text('Venta'), icon: Icon(Icons.point_of_sale)),
-                        ButtonSegment(value: TipoMovimiento.gasto, label: Text('Gasto'), icon: Icon(Icons.shopping_cart)),
+                        ButtonSegment(
+                          value: TipoMovimiento.venta,
+                          label: Text('Venta'),
+                          icon: Icon(Icons.point_of_sale),
+                        ),
+                        ButtonSegment(
+                          value: TipoMovimiento.gasto,
+                          label: Text('Gasto'),
+                          icon: Icon(Icons.shopping_cart),
+                        ),
                       ],
                       selected: {_tipo},
                       onSelectionChanged: (nuevo) {
@@ -342,25 +411,42 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
                     ),
                     const SizedBox(height: 25),
 
-                    if (_tipo == TipoMovimiento.venta) ..._buildFormularioVenta(inventario) else ..._buildFormularioGasto(inventario),
+                    if (_tipo == TipoMovimiento.venta)
+                      ..._buildFormularioVenta(inventario)
+                    else
+                      ..._buildFormularioGasto(inventario),
                   ],
                 ),
               ),
             ),
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.black12))),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.black12)),
+              ),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _guardando ? null : () => Navigator.pop(context),
+                      onPressed: _guardando
+                          ? null
+                          : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         side: const BorderSide(color: Color(0xFFEC6294)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      child: const Text('Cancelar', style: TextStyle(color: Color(0xFFEC6294), fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          color: Color(0xFFEC6294),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 15),
@@ -370,12 +456,28 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         backgroundColor: const Color(0xFFEC6294),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         elevation: 0,
                       ),
                       child: _guardando
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Guardar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Guardar',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -388,23 +490,37 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
   }
 
   List<Widget> _buildFormularioVenta(InventarioProvider inventario) {
-    final consumosBase = _itemSeleccionado != null ? _calcularConsumosBase(inventario) : <_ConsumoRequerido>[];
+    final consumosBase = _itemSeleccionado != null
+        ? _calcularConsumosBase(inventario)
+        : <_ConsumoRequerido>[];
 
     return [
-      const Text('Producto o combo vendido *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+      const Text(
+        'Producto o combo vendido *',
+        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+      ),
       const SizedBox(height: 5),
       GestureDetector(
         onTap: _elegirItemVenta,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black12),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 _itemSeleccionado?.nombre ?? 'Tocá para elegir...',
-                style: TextStyle(color: _itemSeleccionado == null ? Colors.black38 : Colors.black87, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: _itemSeleccionado == null
+                      ? Colors.black38
+                      : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Icon(Icons.chevron_right, color: Colors.black38),
             ],
@@ -412,12 +528,22 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
         ),
       ),
       const SizedBox(height: 20),
-      const Text('Monto de la venta (\$) *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+      const Text(
+        'Monto de la venta (\$) *',
+        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+      ),
       const SizedBox(height: 5),
       _buildTextField(_montoVentaCtrl, 'Ej. 4500', isNumber: true),
       if (consumosBase.isNotEmpty) ...[
         const SizedBox(height: 25),
-        const Text('MATERIALES QUE SE VAN A DESCONTAR', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54, fontSize: 13)),
+        const Text(
+          'MATERIALES QUE SE VAN A DESCONTAR',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black54,
+            fontSize: 13,
+          ),
+        ),
         const SizedBox(height: 10),
         ...consumosBase.map((c) => _buildFilaConsumo(inventario, c)),
       ],
@@ -430,31 +556,61 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(TextSpan(
-            children: [
-              TextSpan(text: c.materialNombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-              TextSpan(text: '  ·  ${c.cantidad.toStringAsFixed(0)} a descontar', style: const TextStyle(color: Colors.black54)),
-            ],
-          )),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: c.materialNombre,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: '  ·  ${c.cantidad.toStringAsFixed(0)} a descontar',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
           if (variantes.isNotEmpty) ...[
             const SizedBox(height: 10),
-            const Text('¿De qué variante?', style: TextStyle(color: Colors.black54, fontSize: 13)),
+            const Text(
+              '¿De qué variante?',
+              style: TextStyle(color: Colors.black54, fontSize: 13),
+            ),
             const SizedBox(height: 5),
             DropdownButtonFormField<String>(
-              value: _variantesSeleccionadas[c.materialId],
+              initialValue: _variantesSeleccionadas[c.materialId],
               isExpanded: true,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: const Color(0xFFF2F2F2),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
               ),
               hint: const Text('Elegir variante'),
-              items: variantes.map((v) => DropdownMenuItem(value: v.id, child: Text('${v.nombre} (stock: ${v.cantidad.toStringAsFixed(0)})'))).toList(),
+              items: variantes
+                  .map(
+                    (v) => DropdownMenuItem<String>(
+                      value: v.id,
+                      child: Text(
+                        '${v.nombre} (stock: ${v.cantidad.toStringAsFixed(0)})',
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (val) {
                 if (val == null) return;
                 setState(() => _variantesSeleccionadas[c.materialId] = val);
@@ -467,23 +623,37 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
   }
 
   List<Widget> _buildFormularioGasto(InventarioProvider inventario) {
-    final variantes = _materialSeleccionado != null ? (inventario.variantes[_materialSeleccionado!.id] ?? []) : [];
+    final variantes = _materialSeleccionado != null
+        ? (inventario.variantes[_materialSeleccionado!.id] ?? [])
+        : [];
 
     return [
-      const Text('Material comprado *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+      const Text(
+        'Material comprado *',
+        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+      ),
       const SizedBox(height: 5),
       GestureDetector(
         onTap: _elegirMaterialGasto,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black12),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 _materialSeleccionado?.nombre ?? 'Tocá para elegir...',
-                style: TextStyle(color: _materialSeleccionado == null ? Colors.black38 : Colors.black87, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: _materialSeleccionado == null
+                      ? Colors.black38
+                      : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Icon(Icons.chevron_right, color: Colors.black38),
             ],
@@ -492,7 +662,10 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
       ),
       if (variantes.isNotEmpty) ...[
         const SizedBox(height: 15),
-        const Text('¿A qué variante le sumás stock? *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+        const Text(
+          '¿A qué variante le sumás stock? *',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+        ),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
           initialValue: _varianteGastoId,
@@ -521,7 +694,13 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Cantidad que ingresa *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                const Text(
+                  'Cantidad que ingresa *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black54,
+                  ),
+                ),
                 const SizedBox(height: 5),
                 _buildTextField(_cantidadGastoCtrl, 'Ej. 100', isNumber: true),
               ],
@@ -532,7 +711,13 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Monto gastado (\$) *', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                const Text(
+                  'Monto gastado (\$) *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black54,
+                  ),
+                ),
                 const SizedBox(height: 5),
                 _buildTextField(_montoGastoCtrl, 'Ej. 8000', isNumber: true),
               ],
@@ -543,18 +728,33 @@ class _NuevoMovimientoScreenState extends State<NuevoMovimientoScreen> {
     ];
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {bool isNumber = false}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    bool isNumber = false,
+  }) {
     return TextField(
       controller: controller,
-      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      keyboardType: isNumber
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.black38),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 15,
+          vertical: 15,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.black12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.black12),
+        ),
       ),
     );
   }
