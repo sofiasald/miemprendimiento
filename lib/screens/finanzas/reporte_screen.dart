@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/finanzas_provider.dart';
 
-/// Pantalla definitiva de Reportes Financieros.
-/// Agrega las transacciones en memoria sincronizadas con la base SQLite
-/// y expone el balance mensual y anual en tiempo real.
+/// Pantalla de Reportes Financieros para el usuario final.
+/// Calcula balances en tiempo real desde SQLite y permite navegar entre meses
+/// con la rueda interactiva de selección.
 class ReporteScreen extends StatefulWidget {
   const ReporteScreen({super.key});
 
@@ -14,11 +14,31 @@ class ReporteScreen extends StatefulWidget {
 }
 
 class _ReporteScreenState extends State<ReporteScreen> {
-  // Mes y año seleccionados para el cálculo (Septiembre 2026 por defecto para Sprint 5)
-  int _mesSeleccionado = 9;
-  int _anioSeleccionado = 2026;
+  // Nombres de los meses para visualización y rueda
+  static const List<String> _meses = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
 
-  /// Formatea importes numéricos a texto con separador de miles por punto.
+  // Rango dinámico de años: desde 2 años atrás hasta el año corriente
+  late final List<int> _aniosDisponibles;
+
+  // Variables mutables (sin 'final') para que el setState de la rueda pueda cambiarlas
+  late int _mesSeleccionado;
+  late int _anioSeleccionado;
+
+  @override
+  void initState() {
+    super.initState();
+    final ahora = DateTime.now();
+    _mesSeleccionado = ahora.month;
+    _anioSeleccionado = ahora.year;
+
+    // Genera automáticamente los años [año actual - 2, año actual - 1, año actual]
+    _aniosDisponibles = List.generate(4, (index) => ahora.year - 3 + index);
+  }
+
+  /// Formatea importes numéricos con punto de miles (Ej: 188800 -> 188.800).
   static String formatearMonto(double monto) {
     final partes = monto.toInt().toString();
     return partes.replaceAllMapped(
@@ -27,7 +47,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
     );
   }
 
-  /// Parsea la fecha almacenada en la base de datos a un objeto DateTime.
+  /// Parsea la fecha almacenada en SQLite a DateTime de forma segura contra nulos.
   DateTime _obtenerFecha(String? fecha) {
     if (fecha == null || fecha.isEmpty) return DateTime.now();
     try {
@@ -37,13 +57,144 @@ class _ReporteScreenState extends State<ReporteScreen> {
     }
   }
 
+  /// --------------------------------------------------------------------------
+  /// MODAL: Rueda de selección interactiva de Mes y Año (Figma Atelier)
+  /// --------------------------------------------------------------------------
+  void _mostrarRuedaMesAno() {
+    int mesTemporal = _mesSeleccionado;
+    int anioTemporal = _anioSeleccionado;
+
+    final controllerMes = FixedExtentScrollController(initialItem: _mesSeleccionado - 1);
+    final controllerAnio = FixedExtentScrollController(
+      initialItem: _aniosDisponibles.indexOf(_anioSeleccionado).clamp(0, _aniosDisponibles.length - 1),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Tirador superior gris
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Encabezado y botón cerrar 'X'
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Elegí mes y año',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 22, color: Colors.black54),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Ruedas de selección cilíndrica
+            SizedBox(
+              height: 150,
+              child: Row(
+                children: [
+                  // Columna 1: Meses
+                  Expanded(
+                    child: ListWheelScrollView.useDelegate(
+                      controller: controllerMes,
+                      itemExtent: 40,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (index) => mesTemporal = index + 1,
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          if (index < 0 || index >= _meses.length) return null;
+                          return Center(
+                            child: Text(
+                              _meses[index],
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+                            ),
+                          );
+                        },
+                        childCount: _meses.length,
+                      ),
+                    ),
+                  ),
+
+                  // Columna 2: Años
+                  Expanded(
+                    child: ListWheelScrollView.useDelegate(
+                      controller: controllerAnio,
+                      itemExtent: 40,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (index) => anioTemporal = _aniosDisponibles[index],
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          if (index < 0 || index >= _aniosDisponibles.length) return null;
+                          return Center(
+                            child: Text(
+                              _aniosDisponibles[index].toString(),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+                            ),
+                          );
+                        },
+                        childCount: _aniosDisponibles.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Botón Confirmar
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE85E98),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _mesSeleccionado = mesTemporal;
+                    _anioSeleccionado = anioTemporal;
+                  });
+                  Navigator.pop(ctx);
+                },
+                child: const Text(
+                  'Confirmar',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<FinanzasProvider>(
       builder: (context, finanzas, child) {
-        // -------------------------------------------------------------
-        // CÁLCULO DE BALANCE MENSUAL (Filtrado por mes y año seleccionado)
-        // -------------------------------------------------------------
+        // Filtrado dinámico por el mes y año que eligió la usuaria en la rueda
         final ventasMes = finanzas.ventas.where((v) {
           final f = _obtenerFecha(v.fecha);
           return f.month == _mesSeleccionado && f.year == _anioSeleccionado;
@@ -57,20 +208,14 @@ class _ReporteScreenState extends State<ReporteScreen> {
         final double totalVentasMes = ventasMes.fold(0.0, (acc, v) => acc + v.monto);
         final double totalGastosMes = gastosMes.fold(0.0, (acc, g) => acc + g.monto);
         final double gananciaNetaMes = totalVentasMes - totalGastosMes;
-
-        // Bandera de estado vacío para el mes consultado
         final bool esMesVacio = (totalVentasMes == 0 && totalGastosMes == 0);
 
-        // -------------------------------------------------------------
-        // CÁLCULO DE ACUMULADO ANUAL (Todo el año en curso)
-        // -------------------------------------------------------------
+        // Acumulado de todo el año seleccionado
         final ventasAnio = finanzas.ventas.where((v) => _obtenerFecha(v.fecha).year == _anioSeleccionado);
         final gastosAnio = finanzas.gastos.where((g) => _obtenerFecha(g.fecha).year == _anioSeleccionado);
-
         final double totalVentasAnio = ventasAnio.fold(0.0, (acc, v) => acc + v.monto);
         final double totalGastosAnio = gastosAnio.fold(0.0, (acc, g) => acc + g.monto);
         final double gananciaNetaAnual = totalVentasAnio - totalGastosAnio;
-
         final bool esAnioVacio = (totalVentasAnio == 0 && totalGastosAnio == 0);
 
         return Scaffold(
@@ -81,44 +226,44 @@ class _ReporteScreenState extends State<ReporteScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // -------------------------------------------------------------
-                // SELECTOR DE FECHA (Permite consultar cualquier periodo)
+                // SELECTOR CONECTADO: Al tocarlo abre la rueda interactiva
                 // -------------------------------------------------------------
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF48FB1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_month, color: Colors.black87, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Septiembre $_anioSeleccionado',
-                            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                      const Icon(Icons.arrow_drop_down, color: Colors.black87),
-                    ],
+                GestureDetector(
+                  onTap: _mostrarRuedaMesAno,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF48FB1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_month, color: Colors.black87, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_meses[_mesSeleccionado - 1]} $_anioSeleccionado',
+                              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.black87),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
 
-                // -------------------------------------------------------------
-                // SECCIÓN: BALANCE MENSUAL
-                // -------------------------------------------------------------
+                // BALANCE MENSUAL
                 const Text(
                   'BALANCE MENSUAL',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF757575), letterSpacing: 0.5),
                 ),
                 const SizedBox(height: 10),
 
-                // Tarjeta Ganancia Neta
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
@@ -145,7 +290,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Fila de Totales (Ventas y Gastos)
                 Row(
                   children: [
                     Expanded(
@@ -195,9 +339,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 ),
                 const SizedBox(height: 22),
 
-                // -------------------------------------------------------------
-                // SECCIÓN: ACUMULADO ANUAL
-                // -------------------------------------------------------------
+                // ACUMULADO ANUAL
                 const Text(
                   'ACUMULADO ANUAL',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF757575), letterSpacing: 0.5),

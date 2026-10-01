@@ -6,6 +6,7 @@ import '../../models/pedido.dart';
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
 import 'detalle_pedido_screen.dart';
+import 'detalle_movimiento_screen.dart';
 
 /// Clase auxiliar para ordenar transacciones heterogéneas (Venta, Gasto, Pedido)
 /// dentro de una misma lista cronológica.
@@ -81,9 +82,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
           backgroundColor: const Color(0xFFFBFBFB),
           body: Column(
             children: [
-              // -------------------------------------------------------------
               // BLOQUE 1: Input de búsqueda redondeado
-              // -------------------------------------------------------------
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
                 child: TextField(
@@ -104,9 +103,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 ),
               ),
 
-              // -------------------------------------------------------------
               // BLOQUE 2: Chips horizontales de filtrado por categoría
-              // -------------------------------------------------------------
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -123,9 +120,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 ),
               ),
 
-              // -------------------------------------------------------------
               // BLOQUE 3: Lista de movimientos o Estado Vacío
-              // -------------------------------------------------------------
               Expanded(
                 child: listaFinal.isEmpty
                     ? const Center(
@@ -261,9 +256,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 }
 
-// =============================================================================
 // COMPONENTE: Tarjeta Pedido con navegación al Detalle
-// =============================================================================
 class _TarjetaPedido extends StatelessWidget {
   final Pedido pedido;
   const _TarjetaPedido({required this.pedido});
@@ -357,105 +350,125 @@ class _TarjetaPedido extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // COMPONENTE: Tarjeta Venta
-// =============================================================================
+// COMPONENTE: Tarjeta Venta
 class _TarjetaVenta extends StatelessWidget {
   final Venta venta;
   const _TarjetaVenta({required this.venta});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8E8E8)),
-        boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long_outlined, color: Colors.black87, size: 20),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('VENTA', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  Text(venta.nombreItem ?? 'Venta Directa', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                  const Text('Venta Directa', style: TextStyle(color: Colors.black45, fontSize: 11)),
-                ],
-              ),
-            ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetalleMovimientoScreen.venta(venta: venta),
           ),
-          Row(
-            children: [
-              Text(
-                '+\$${_HistorialScreenState.formatearMonto(venta.monto)}',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
-            ],
-          ),
-        ],
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8E8E8)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.receipt_long_outlined, color: Colors.black87, size: 20),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('VENTA', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    Text(venta.nombreItem ?? 'Venta Directa', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                    const Text('Venta Directa', style: TextStyle(color: Colors.black45, fontSize: 11)),
+                  ],
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  '+\$${_HistorialScreenState.formatearMonto(venta.monto)}',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// =============================================================================
 // COMPONENTE: Tarjeta Gasto
-// =============================================================================
+// COMPONENTE: Tarjeta Gasto
 class _TarjetaGasto extends StatelessWidget {
   final Gasto gasto;
   const _TarjetaGasto({required this.gasto});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8E8E8)),
-        boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.bookmark_border, color: Colors.black87, size: 20),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('GASTO', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  Text(gasto.materialNombre ?? 'Compra Insumo', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                  const Text('Compra Insumo', style: TextStyle(color: Colors.black45, fontSize: 11)),
-                ],
-              ),
-            ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetalleMovimientoScreen.gasto(gasto: gasto),
           ),
-          Row(
-            children: [
-              Text(
-                '-\$${_HistorialScreenState.formatearMonto(gasto.monto)}',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
-            ],
-          ),
-        ],
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8E8E8)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.bookmark_border, color: Colors.black87, size: 20),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('GASTO', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    Text(gasto.materialNombre ?? 'Compra Insumo', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                    const Text('Compra Insumo', style: TextStyle(color: Colors.black45, fontSize: 11)),
+                  ],
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  '-\$${_HistorialScreenState.formatearMonto(gasto.monto)}',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

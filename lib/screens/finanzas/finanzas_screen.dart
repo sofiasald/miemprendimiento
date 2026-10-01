@@ -24,12 +24,12 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     // Lectura inicial de tablas SQLite al abrir Finanzas
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<FinanzasProvider>();
-      provider.cargarVentas();
-     provider.cargarGastos();
-      provider.cargarPedidos();
+       provider.cargarVentas();
+       provider.cargarGastos();
+       provider.cargarPedidos();
     });
     //WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Inyectamos a Elena Gómez para poblar la lista y poder probar el detalle
+      //Inyectamos a Elena Gómez para poblar la lista y poder probar el detalle
     //  context.read<FinanzasProvider>().cargarDatosDemostracion();
     //});
   }

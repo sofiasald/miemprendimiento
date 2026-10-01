@@ -154,9 +154,14 @@ class FinanzasProvider extends ChangeNotifier {
         id: 'pedido-demo-1',
         cliente: 'Elena Gómez',
         nombreItem: 'Tiara Strass',
+        variante: 'Color de Gemas: Azul',
+        cantidad: 2,
         monto: 65000,
+        fechaRegistro: DateTime(2026, 8, 12),
         fechaEntrega: DateTime(2026, 9, 28),
-      ),
+        observaciones: 'Seña de \$25.000',
+        estado: 'pendiente',
+      )
     ];
 
     // 2. Venta de Tiara Strass ($200.000)
@@ -197,6 +202,27 @@ class FinanzasProvider extends ChangeNotifier {
     
     pedidos.removeWhere((p) => p.id == id);
     notifyListeners(); // Quita la tarjeta de la lista en vivo
+  }
+
+  /// Actualiza los datos de un pedido existente (modificación o cambio de estado).
+  Future<void> actualizarPedido(Pedido pedidoModificado) async {
+    final indice = pedidos.indexWhere((p) => p.id == pedidoModificado.id);
+    if (indice != -1) {
+      pedidos[indice] = pedidoModificado;
+      notifyListeners();
+    }
+  }
+
+  /// Elimina una venta y actualiza los balances de ReporteScreen.
+  Future<void> eliminarVenta(String id) async {
+    ventas.removeWhere((v) => v.id == id);
+    notifyListeners();
+  }
+
+  /// Elimina un gasto y actualiza los balances de ReporteScreen.
+  Future<void> eliminarGasto(String id) async {
+    gastos.removeWhere((g) => g.id == id);
+    notifyListeners();
   }
 
   /// Limpia los movimientos para visualizar el estado vacío ($0).
