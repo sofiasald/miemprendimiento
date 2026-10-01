@@ -73,8 +73,9 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const NuevoPedidoScreen()),
                 );
-                if (res == true)
+                if (res == true) {
                   _mostrarConfirmacion('Pedido guardado correctamente');
+                }
               },
             ),
           ],
@@ -326,8 +327,9 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
             : propiedad == 'material'
             ? movimiento.material
             : movimiento.nombre;
-        if (valor != null && valor.toString().isNotEmpty)
+        if (valor != null && valor.toString().isNotEmpty) {
           return valor.toString();
+        }
       } catch (_) {}
     }
     return 'Movimiento';
