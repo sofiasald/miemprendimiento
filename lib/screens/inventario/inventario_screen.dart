@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../providers/inventario_provider.dart';
 import '../../models/material.dart';
 import '../../models/variante.dart';
-import '../../models/producto.dart';
-import '../../models/producto_material.dart';
-import '../../models/combo.dart';
-import '../../models/combo_item.dart';
 import 'nuevo_material_screen.dart';
 import 'nuevo_producto_screen.dart';
 import 'nuevo_combo_screen.dart';

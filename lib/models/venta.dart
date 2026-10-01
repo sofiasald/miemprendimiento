@@ -18,17 +18,17 @@ class Venta {
     String? fecha,
     this.visible = true,
   }) : id = id ?? const Uuid().v4(),
-  fecha = fecha ?? DateTime.now().toIso8601String(); // Si no se pasa fecha, toma el momento exacto actual
+       fecha = fecha ?? DateTime.now().toIso8601String(); // Si no se pasa fecha, toma el momento exacto actual
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'productoId': productoId,
-        'comboId': comboId,
-        'nombreItem': nombreItem,
-        'monto': monto,
-        'fecha': fecha,
-        'visible': visible ? 1 : 0,
-      };
+    'id': id,
+    'productoId': productoId,
+    'comboId': comboId,
+    'nombreItem': nombreItem,
+    'monto': monto,
+    'fecha': fecha,
+    'visible': visible ? 1 : 0,
+  };
 
   factory Venta.fromMap(Map<String, dynamic> map) {
     return Venta(

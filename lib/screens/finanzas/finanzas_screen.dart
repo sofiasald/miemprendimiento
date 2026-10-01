@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:miemprendimiento/widgets/gasto_form.dart' as gasto_widget;
+import 'package:miemprendimiento/widgets/pedido_form.dart' as pedido_widget;
 
-import '../../providers/finanzas_provider.dart';
-import 'nuevo_movimiento_screen.dart';
-import 'nuevo_pedido_screen.dart';
+import '../../models/movimiento_models.dart';
+import '../../widgets/tipo_movimiento_selector.dart';
+import '../../widgets/venta_form.dart';
+import '../../widgets/gasto_form.dart' hide PedidoForm;
+import '../../widgets/pedido_form.dart' hide GastoForm;
 
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});
@@ -13,396 +16,213 @@ class FinanzasScreen extends StatefulWidget {
 }
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
-  int _tabIndex = 0; // 0 = Ventas, 1 = Gastos, 2 = Pedidos
+  TipoMovimiento _tipo = TipoMovimiento.venta;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<FinanzasProvider>();
-      provider.cargarVentas();
-      provider.cargarGastos();
-      provider.cargarPedidos();
-    });
-  }
-
-  void _abrirOpciones() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(
-                Icons.point_of_sale,
-                color: Color(0xFFEC6294),
-              ),
-              title: const Text(
-                'Nueva venta / gasto',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final res = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NuevoMovimientoScreen(),
-                  ),
-                );
-                if (res == true) {
-                  _mostrarConfirmacion('Movimiento guardado correctamente');
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.event_note, color: Color(0xFFEC6294)),
-              title: const Text(
-                'Nuevo pedido',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final res = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NuevoPedidoScreen()),
-                );
-                if (res == true)
-                  _mostrarConfirmacion('Pedido guardado correctamente');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _mostrarConfirmacion(String mensaje) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              mensaje,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-            const Icon(Icons.check_rounded, color: Color(0xFFEC6294), size: 30),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-        duration: const Duration(seconds: 2),
-        elevation: 4,
-      ),
-    );
-  }
+  // Datos de prueba (reemplazar por Providers en producción)
+  final List<Producto> _productos = [
+    Producto(id: 'p1', nombre: 'Tiara Strass', precio: 4500),
+    Producto(id: 'p2', nombre: 'Vaso Personalizado Glitter', precio: 3200),
+    Producto(id: 'p3', nombre: 'Tutú de Tul', precio: 5800),
+  ];
+  final List<Combo> _combos = [
+    Combo(id: 'c1', nombre: 'Combo Cumpleaños Premium', precio: 12500),
+    Combo(id: 'c2', nombre: 'Pack Egresados', precio: 8000),
+  ];
+  final List<MaterialItem> _materiales = [
+    MaterialItem(
+      id: 'm1',
+      nombre: 'Cinta de Raso 25mm',
+      unidad: 'Metros',
+      cantidad: 50,
+      stockMinimo: 5,
+    ),
+    MaterialItem(
+      id: 'm2',
+      nombre: 'Gemas Strass',
+      unidad: 'u',
+      cantidad: 200,
+      stockMinimo: 20,
+    ),
+    MaterialItem(
+      id: 'm3',
+      nombre: 'Tul',
+      unidad: 'Metros',
+      cantidad: 30,
+      stockMinimo: 5,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<FinanzasProvider>();
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            const Text(
-              'FINANZAS',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
+            // Título FINANZAS
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEBEBEB),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  _buildTab('Ventas', 0),
-                  _buildTab('Gastos', 1),
-                  _buildTab('Pedidos', 2),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: _tabIndex == 0
-                  ? _buildVentasList(provider)
-                  : _tabIndex == 1
-                  ? _buildGastosList(provider)
-                  : _buildPedidosList(provider),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFEC6294),
-        shape: const CircleBorder(),
-        onPressed: _abrirOpciones,
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
-      ),
-    );
-  }
-
-  Widget _buildTab(String title, int index) {
-    bool isSelected = _tabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tabIndex = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFEC6294) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVentasList(FinanzasProvider provider) {
-    if (provider.ventas.isEmpty) {
-      return const Center(
-        child: Text(
-          'Todavía no registraste ninguna venta.',
-          style: TextStyle(color: Colors.black54),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: provider.ventas.length,
-      itemBuilder: (ctx, i) {
-        final v = provider.ventas[i];
-        return _buildMovimientoCard(
-          titulo: _textoMovimiento(v, const [
-            'producto',
-            'descripcion',
-            'nombre',
-          ]),
-          subtitulo: v.fecha,
-          monto: v.monto,
-          esIngreso: true,
-        );
-      },
-    );
-  }
-
-  Widget _buildGastosList(FinanzasProvider provider) {
-    if (provider.gastos.isEmpty) {
-      return const Center(
-        child: Text(
-          'Todavía no registraste ningún gasto.',
-          style: TextStyle(color: Colors.black54),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: provider.gastos.length,
-      itemBuilder: (ctx, i) {
-        final g = provider.gastos[i];
-        return _buildMovimientoCard(
-          titulo: _textoMovimiento(g, const [
-            'material',
-            'descripcion',
-            'nombre',
-          ]),
-          subtitulo: g.fecha,
-          monto: g.monto,
-          esIngreso: false,
-        );
-      },
-    );
-  }
-
-  Widget _buildPedidosList(FinanzasProvider provider) {
-    if (provider.pedidos.isEmpty) {
-      return const Center(
-        child: Text(
-          'No hay pedidos pendientes.',
-          style: TextStyle(color: Colors.black54),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: provider.pedidos.length,
-      itemBuilder: (ctx, i) {
-        final p = provider.pedidos[i];
-        return Card(
-          elevation: 0,
-          color: Colors.white,
-          margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-            side: const BorderSide(color: Colors.black12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(15.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _textoMovimiento(p, const [
-                          'producto',
-                          'descripcion',
-                          'nombre',
-                        ]),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Cliente: ${p.cliente}',
-                        style: const TextStyle(
-                          color: Colors.black54,
-                          fontSize: 13,
-                        ),
-                      ),
-                      Text(
-                        'Entrega: ${p.fechaEntrega}',
-                        style: const TextStyle(
-                          color: Colors.black54,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
+              height: 67,
+              width: double.infinity,
+              color: Colors.white,
+              alignment: Alignment.center,
+              child: const Text(
+                'FINANZAS',
+                style: TextStyle(
+                  fontFamily: 'PlusJakartaSans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  letterSpacing: 0.05,
+                  color: Color(0xFF212121),
                 ),
-                Text(
-                  '\$ ${_numeroMovimiento(p, const ['monto', 'precio', 'total'])}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  String _textoMovimiento(dynamic movimiento, List<String> propiedades) {
-    for (final propiedad in propiedades) {
-      try {
-        final valor = propiedad == 'producto'
-            ? movimiento.producto
-            : propiedad == 'descripcion'
-            ? movimiento.descripcion
-            : propiedad == 'material'
-            ? movimiento.material
-            : movimiento.nombre;
-        if (valor != null && valor.toString().isNotEmpty)
-          return valor.toString();
-      } catch (_) {}
-    }
-    return 'Movimiento';
-  }
-
-  String _numeroMovimiento(dynamic movimiento, List<String> propiedades) {
-    for (final propiedad in propiedades) {
-      try {
-        final valor = propiedad == 'monto'
-            ? movimiento.monto
-            : propiedad == 'precio'
-            ? movimiento.precio
-            : movimiento.total;
-        if (valor != null) {
-          final numero = valor is num
-              ? valor.toDouble()
-              : double.tryParse('$valor');
-          if (numero != null) return numero.toStringAsFixed(0);
-        }
-      } catch (_) {}
-    }
-    return '0';
-  }
-
-  Widget _buildMovimientoCard({
-    required String titulo,
-    required String subtitulo,
-    required double monto,
-    required bool esIngreso,
-  }) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: const BorderSide(color: Colors.black12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(15.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitulo,
-                    style: const TextStyle(color: Colors.black54, fontSize: 13),
-                  ),
-                ],
               ),
             ),
-            Text(
-              '${esIngreso ? '+' : '-'}\$ ${monto.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: esIngreso
-                    ? const Color(0xFF2E7D32)
-                    : const Color(0xFFC62828),
+
+            // Selector Venta / Gasto / Pedido (Sprint 4 - Paso 1)
+            TipoMovimientoSelector(
+              seleccionado: _tipo,
+              onChanged: (t) => setState(() => _tipo = t),
+            ),
+
+            // Formulario correspondiente
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildFormulario(),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildFormulario() {
+    switch (_tipo) {
+      case TipoMovimiento.venta:
+        return VentaForm(
+          productos: _productos,
+          combos: _combos,
+          materiales: _materiales,
+          variantesPorMaterial: _variantesPorMaterial(),
+          onRegistrar: (venta, consumos) {
+            // Sprint 4 - Paso 5: registrar venta con transacción (descuenta stock)
+            _registrarVenta(venta, consumos);
+          },
+        );
+
+      case TipoMovimiento.gasto:
+        return gasto_widget.GastoForm(
+          materiales: _materiales,
+          variantesPorMaterial: _variantesPorMaterial(),
+
+          onRegistrar: (gasto) {
+            // Sprint 4 - Paso 6: registrar gasto con transacción (suma stock)
+            _registrarGasto(gasto);
+          },
+        );
+
+      case TipoMovimiento.pedido:
+        return pedido_widget.PedidoForm(
+          productos: _productos,
+          combos: _combos,
+          onRegistrar: (pedido) {
+            // Sprint 4 - Paso 7: registrar pedido (NO descuenta stock todavía)
+            _registrarPedido(pedido);
+          },
+        );
+    }
+  }
+
+  Future<void> _registrarVenta(
+    dynamic venta,
+    List<MaterialConsumo> consumos,
+  ) async {
+    // Validar stock ANTES de abrir transacción (Sprint 4 - Paso 4)
+    if (!hayStockSuficiente(consumos, _materiales)) {
+      _mostrarAlerta('No hay stock, revisar materiales');
+      return;
+    }
+
+    // Sprint 4 - Paso 5: db.transaction(...) con descuento de stock
+    // await db.transaction((txn) async {
+    //   await txn.insert('ventas', venta.toMap());
+    //   for (final c in consumos) {
+    //     await txn.rawUpdate(
+    //       'UPDATE materiales SET cantidad = cantidad - ? WHERE id = ?',
+    //       [c.cantidad, c.materialId],
+    //     );
+    //   }
+    // });
+
+    if (!mounted) return;
+    _mostrarSnack('Venta registrada correctamente');
+    Navigator.pop(context);
+  }
+
+  Future<void> _registrarGasto(dynamic gasto) async {
+    // Sprint 4 - Paso 6: mismo patrón, sumando stock
+    // await db.transaction((txn) async {
+    //   await txn.insert('gastos', gasto.toMap());
+    //   await txn.rawUpdate(
+    //     'UPDATE materiales SET cantidad = cantidad + ? WHERE id = ?',
+    //     [gasto.cantidad, gasto.materialId],
+    //   );
+    // });
+
+    if (!mounted) return;
+    _mostrarSnack('Gasto registrado correctamente');
+    Navigator.pop(context);
+  }
+
+  Future<void> _registrarPedido(dynamic pedido) async {
+    // Sprint 4 - Paso 7: pedido NO toca stock
+    // await db.insert('pedidos', pedido.toMap());
+
+    if (!mounted) return;
+    _mostrarSnack('Pedido registrado (stock se descuenta al entregar)');
+    Navigator.pop(context);
+  }
+
+  void _mostrarAlerta(String mensaje) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Aviso'),
+        content: Text(mensaje),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Simulación: en producción esto sale de InventarioProvider
+  final Map<String, List<Variante>> _variantesPorMaterialMap = {
+    'm1': [
+      Variante(id: 'v1', materialId: 'm1', nombre: 'Rojo', cantidad: 12),
+      Variante(id: 'v2', materialId: 'm1', nombre: 'Azul', cantidad: 30),
+      Variante(id: 'v3', materialId: 'm1', nombre: 'Dorado', cantidad: 5),
+    ],
+    'm2': [
+      Variante(id: 'v4', materialId: 'm2', nombre: 'Roja', cantidad: 200),
+      Variante(
+        id: 'v5',
+        materialId: 'm2',
+        nombre: 'Rosa Pastel',
+        cantidad: 150,
+      ),
+    ],
+    // 'm3' (Tul) no tiene variantes, por eso no aparece
+  };
+
+  Map<String, List<Variante>> _variantesPorMaterial() =>
+      _variantesPorMaterialMap;
+
+  void _mostrarSnack(String mensaje) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(mensaje)));
   }
 }
