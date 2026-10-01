@@ -18,20 +18,20 @@ class MaterialItem {
   }) : id = id ?? const Uuid().v4();
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'nombre': nombre,
-        'unidad': unidad,
-        'cantidad': cantidad,
-        'stockMinimo': stockMinimo,
-        'visible': visible ? 1 : 0,
-      };
+    'id': id,
+    'nombre': nombre,
+    'unidad': unidad,
+    'cantidad': cantidad,
+    'stockMinimo': stockMinimo,
+    'visible': visible ? 1 : 0,
+  };
 
   factory MaterialItem.fromMap(Map<String, dynamic> m) => MaterialItem(
-        id: m['id'],
-        nombre: m['nombre'],
-        unidad: m['unidad'],
-        cantidad: m['cantidad'] ?? 0,
-        stockMinimo: m['stockMinimo'] ?? 0,
-        visible: m['visible'] == 1,
-      );
+    id: m['id'],
+    nombre: m['nombre'],
+    unidad: m['unidad'],
+    cantidad: m['cantidad'] ?? 0,
+    stockMinimo: m['stockMinimo'] ?? 0,
+    visible: m['visible'] == 1,
+  );
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'inventario/inventario_screen.dart';
 import 'finanzas/finanzas_screen.dart';
+import 'backup/backup_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,7 +18,7 @@ class _MainScreenState extends State<MainScreen> {
     const _EnConstruccionScreen(titulo: 'Inicio'),
     const InventarioScreen(),
     const FinanzasScreen(),
-    const _EnConstruccionScreen(titulo: 'Ajustes'),
+    const BackupScreen(),
   ];
 
   @override
