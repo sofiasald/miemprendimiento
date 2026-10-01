@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FinanzasProvider()),
       ],
       child: MaterialApp(
-        title: 'Mi Emprendimiento',
+        title: 'Atelier',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFEC6294)),

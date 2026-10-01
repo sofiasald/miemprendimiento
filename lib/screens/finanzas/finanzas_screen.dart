@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:miemprendimiento/widgets/gasto_form.dart' as gasto_widget;
 import 'package:miemprendimiento/widgets/pedido_form.dart' as pedido_widget;
 
 import '../../models/movimiento_models.dart';
+import '../../providers/finanzas_provider.dart';
 import '../../widgets/tipo_movimiento_selector.dart';
 import '../../widgets/venta_form.dart';
-import '../../widgets/gasto_form.dart' hide PedidoForm;
-import '../../widgets/pedido_form.dart' hide GastoForm;
+import 'historial_screen.dart';
+import 'reporte_screen.dart';
 
+/// Pantalla central de Finanzas con la navegación superior oficial de Figma:
+/// [ Registrar | Historial | Reporte ]
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});
 
@@ -16,6 +20,8 @@ class FinanzasScreen extends StatefulWidget {
 }
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
+  // 0: Registrar, 1: Historial, 2: Reporte
+  int _indiceActivo = 1;
   TipoMovimiento _tipo = TipoMovimiento.venta;
 
   // Datos de prueba (reemplazar por Providers en producción)
@@ -53,44 +59,111 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Lectura inicial de tablas SQLite al abrir Finanzas
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<FinanzasProvider>();
+      provider.cargarVentas();
+      provider.cargarGastos();
+      provider.cargarPedidos();
+    });
+    //WidgetsBinding.instance.addPostFrameCallback((_) {
+    //Inyectamos a Elena Gómez para poblar la lista y poder probar el detalle
+    //  context.read<FinanzasProvider>().cargarDatosDemostracion();
+    //});
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Título FINANZAS
-            Container(
-              height: 67,
-              width: double.infinity,
-              color: Colors.white,
-              alignment: Alignment.center,
-              child: const Text(
-                'FINANZAS',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 24,
-                  letterSpacing: 0.05,
-                  color: Color(0xFF212121),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'FINANZAS',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: 1.2,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(46),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFEEEEEE), width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _pestanaSuperior('Registrar', 0),
+                _pestanaSuperior('Historial', 1),
+                _pestanaSuperior('Reporte', 2),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: IndexedStack(
+        index: _indiceActivo,
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                TipoMovimientoSelector(
+                  seleccionado: _tipo,
+                  onChanged: (tipo) => setState(() => _tipo = tipo),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: _buildFormulario(),
+                  ),
+                ),
+              ],
             ),
+          ),
+          HistorialScreen(),
+          ReporteScreen(),
+        ],
+      ),
+    );
+  }
 
-            // Selector Venta / Gasto / Pedido (Sprint 4 - Paso 1)
-            TipoMovimientoSelector(
-              seleccionado: _tipo,
-              onChanged: (t) => setState(() => _tipo = t),
-            ),
+  Widget _pestanaSuperior(String titulo, int indice) {
+    final bool seleccionado = _indiceActivo == indice;
 
-            // Formulario correspondiente
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: _buildFormulario(),
-              ),
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _indiceActivo = indice;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: seleccionado
+                  ? const Color(0xFFE91E63)
+                  : Colors.transparent,
+              width: 2.5,
             ),
-          ],
+          ),
+        ),
+        child: Text(
+          titulo,
+          style: TextStyle(
+            color: seleccionado ? Colors.black87 : Colors.black45,
+            fontWeight: seleccionado ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 14,
+          ),
         ),
       ),
     );
