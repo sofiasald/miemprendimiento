@@ -17,7 +17,6 @@ class _HuellaScreenState extends State<HuellaScreen> {
   @override
   void initState() {
     super.initState();
-    // Pide la huella automáticamente al abrir la pantalla.
     WidgetsBinding.instance.addPostFrameCallback((_) => _intentarDesbloquear());
   }
 
@@ -76,15 +75,24 @@ class _HuellaScreenState extends State<HuellaScreen> {
               ),
             ),
             const Spacer(flex: 4),
+            // Caja de tamaño FIJO (72x72): tanto el ícono como el loader
+            // se centran DENTRO de esta misma caja, así el layout nunca
+            // cambia de tamaño y el ícono no "se corre" de lugar.
             GestureDetector(
               onTap: _intentarDesbloquear,
-              child: _verificando
-                  ? const SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                    )
-                  : const Icon(Icons.fingerprint, color: Colors.white, size: 72),
+              child: SizedBox(
+                width: 72,
+                height: 72,
+                child: Center(
+                  child: _verificando
+                      ? const SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                        )
+                      : const Icon(Icons.fingerprint, color: Colors.white, size: 72),
+                ),
+              ),
             ),
             const SizedBox(height: 60),
           ],

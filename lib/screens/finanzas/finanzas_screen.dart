@@ -12,8 +12,19 @@ import 'reporte_screen.dart';
 
 /// Pantalla central de Finanzas con la navegación superior oficial de Figma:
 /// [ Registrar | Historial | Reporte ]
+///
+/// Acepta [indiceInicial] y [tipoInicial] para poder abrirse directo en
+/// una pestaña/tipo específico (ej. desde los botones de Home:
+/// "Nueva Venta" -> Registrar + Venta, "Nuevo Pedido" -> Registrar + Pedido).
 class FinanzasScreen extends StatefulWidget {
-  const FinanzasScreen({super.key});
+  final int indiceInicial;
+  final TipoMovimiento tipoInicial;
+
+  const FinanzasScreen({
+    super.key,
+    this.indiceInicial = 1, // por defecto, Historial (comportamiento previo)
+    this.tipoInicial = TipoMovimiento.venta,
+  });
 
   @override
   State<FinanzasScreen> createState() => _FinanzasScreenState();
@@ -21,8 +32,8 @@ class FinanzasScreen extends StatefulWidget {
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
   // 0: Registrar, 1: Historial, 2: Reporte
-  int _indiceActivo = 1;
-  TipoMovimiento _tipo = TipoMovimiento.venta;
+  late int _indiceActivo = widget.indiceInicial;
+  late TipoMovimiento _tipo = widget.tipoInicial;
 
   // Datos de prueba (reemplazar por Providers en producción)
   final List<Producto> _productos = [
@@ -68,10 +79,6 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       provider.cargarGastos();
       provider.cargarPedidos();
     });
-    //WidgetsBinding.instance.addPostFrameCallback((_) {
-    //Inyectamos a Elena Gómez para poblar la lista y poder probar el detalle
-    //  context.read<FinanzasProvider>().cargarDatosDemostracion();
-    //});
   }
 
   @override
