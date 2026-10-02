@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/inventario_provider.dart';
-import 'main_screen.dart';
+import '../providers/auth_provider.dart';
+import 'auth/register_screen.dart';
+import 'auth/huella_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,19 +23,17 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _inicializarYContinuar() async {
     final startTime = DateTime.now();
 
-    // Precargar datos del inventario y base de datos
     try {
-      final provider = context.read<InventarioProvider>();
+      final inventarioProvider = context.read<InventarioProvider>();
       await Future.wait([
-        provider.cargarMateriales(),
-        provider.cargarProductos(),
-        provider.cargarCombos(),
+        inventarioProvider.cargarMateriales(),
+        inventarioProvider.cargarProductos(),
+        inventarioProvider.cargarCombos(),
       ]);
     } catch (_) {
       // Si ocurre algún fallo de lectura, la app continúa normalmente
     }
 
-    // Asegurar un mínimo de visualización fluida (ej. 1 segundo) para evitar parpadeos si carga instantáneo
     final elapsed = DateTime.now().difference(startTime);
     const minSplashDuration = Duration(milliseconds: 1200);
     if (elapsed < minSplashDuration) {
@@ -42,12 +42,22 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
+    // Decide el destino: si ya hay un usuario registrado en este
+    // dispositivo, va directo a pedir huella. Si es la primera vez,
+    // muestra el registro.
+    final authProvider = context.read<AuthProvider>();
+    final yaTieneUsuario = await authProvider.hayUsuarioRegistrado();
+
+    if (!mounted) return;
+
+    final Widget siguientePantalla =
+        yaTieneUsuario ? const HuellaScreen() : const RegisterScreen();
+
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const MainScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => siguientePantalla,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -58,19 +68,16 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Precargar la imagen en memoria para evitar cualquier parpadeo o render borroso
     precacheImage(const AssetImage('assets/icon/app_icon.jpg'), context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFFA8CB8,
-      ), // Un rosado similar al de la imagen
+      backgroundColor: const Color(0xFFFA8CB8),
       body: Center(
         child: Container(
-          width: 192, // Coincide exactamente con el tamaño nativo de Android
+          width: 192,
           height: 192,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
