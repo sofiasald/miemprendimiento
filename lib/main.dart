@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'providers/inventario_provider.dart';
 import 'providers/finanzas_provider.dart';
+import 'providers/auth_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() {
@@ -17,6 +18,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => InventarioProvider()),
         ChangeNotifierProvider(create: (_) => FinanzasProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: MaterialApp(
         title: 'Atelier',
