@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models/movimiento_models.dart';
-import 'selector_simple.dart';
+import '../models/gasto.dart';
+import 'selector_articulo_acordeon.dart';
 
 class GastoForm extends StatefulWidget {
   final List<MaterialItem> materiales;
   final Map<String, List<Variante>> variantesPorMaterial;
-  final void Function(dynamic gasto) onRegistrar;
+  final void Function(Gasto gasto) onRegistrar;
 
   const GastoForm({
     super.key,
@@ -21,140 +21,87 @@ class GastoForm extends StatefulWidget {
 }
 
 class _GastoFormState extends State<GastoForm> {
-  MaterialItem? _materialSeleccionado;
-  Variante? _varianteSeleccionada;
-  DateTime _fecha = DateTime.now();
+  String? _materialId;
+  String? _varianteId;
+  final _cantidadCtrl = TextEditingController();
+  final _montoCtrl = TextEditingController();
 
-  final TextEditingController _cantidadController = TextEditingController();
-  final TextEditingController _montoController = TextEditingController();
+  bool _listaMaterialesAbierta = true;
+  bool _listaVariantesAbierta = true;
 
   @override
   void dispose() {
-    _cantidadController.dispose();
-    _montoController.dispose();
+    _cantidadCtrl.dispose();
+    _montoCtrl.dispose();
     super.dispose();
-  }
-
-  List<Variante> get _variantesDelMaterial {
-    if (_materialSeleccionado == null) return [];
-    return widget.variantesPorMaterial[_materialSeleccionado!.id] ?? [];
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        const _Label('Material / Insumo comprado *'),
-        const SizedBox(height: 8),
-        SelectorSimple<MaterialItem>(
-          titulo: 'Seleccionar material . . .',
-          seleccionadoLabel: _materialSeleccionado?.nombre,
-          items: widget.materiales,
-          labelBuilder: (m) =>
-              '${m.nombre}  (Stock: ${m.cantidad} ${m.unidad})',
-          onSeleccionado: (m) {
-            setState(() {
-              _materialSeleccionado = m;
-              _varianteSeleccionada = null;
-            });
-          },
-        ),
+    final variantes = _materialId != null
+        ? widget.variantesPorMaterial[_materialId!] ?? []
+        : <Variante>[];
+    final materialSel = widget.materiales.firstWhere(
+      (m) => m.id == _materialId,
+      orElse: () => MaterialItem(
+        id: '',
+        nombre: '',
+        unidad: '',
+        cantidad: 0,
+        stockMinimo: 0,
+      ),
+    );
 
-        if (_materialSeleccionado != null &&
-            _variantesDelMaterial.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          const _Label('Variante de material'),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ---- Material / Insumo comprado ----
+          const Text(
+            'Material / Insumo comprado *',
+            style: TextStyle(fontSize: 15, color: AtelierColors.grisTexto),
+          ),
           const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFE0E0E0)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<Variante>(
-                  isExpanded: true,
-                  hint: const Text(
-                    'Seleccionar variante . . .',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: Color(0xFF757575),
-                    ),
-                  ),
-                  value: _varianteSeleccionada,
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Color(0xFFE85E98),
-                  ),
-                  items: _variantesDelMaterial.map((v) {
-                    return DropdownMenuItem(
-                      value: v,
-                      child: Text(
-                        '${v.nombre}  (Stock actual: ${v.cantidad})',
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          color: Color(0xFF212121),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (v) => setState(() => _varianteSeleccionada = v),
-                ),
+
+          // Listado plegable de materiales
+          _listadoMateriales(),
+
+          // ---- Si el material tiene variantes, segundo listado ----
+          if (variantes.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Variante de ${materialSel.nombre}',
+              style: const TextStyle(
+                fontSize: 15,
+                color: AtelierColors.grisTexto,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            _listadoVariantes(variantes),
+          ],
 
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
+          const SizedBox(height: 20),
+
+          // ---- Cantidad + Unidad ----
+          Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('Cantidad comprada *'),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 40,
-                      child: TextField(
-                        controller: _cantidadController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                          color: Color(0xFF212121),
-                        ),
-                        decoration: InputDecoration(
-                          hintText: '0',
-                          hintStyle: const TextStyle(color: Color(0xFF757575)),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFE0E0E0),
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFE0E0E0),
-                            ),
-                          ),
-                        ),
+                    const Text(
+                      'Cantidad comprada *',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AtelierColors.grisTexto,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _cantidadCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: _inputDecoration('0'),
                     ),
                   ],
                 ),
@@ -164,24 +111,28 @@ class _GastoFormState extends State<GastoForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('Unidad (Referencia)'),
-                    const SizedBox(height: 8),
+                    const Text(
+                      'Unidad (Referencia)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AtelierColors.grisTexto,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Container(
-                      height: 40,
+                      height: 48,
+                      alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF5F5F5),
-                        border: Border.all(color: const Color(0xFFE0E0E0)),
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AtelierColors.grisBorde),
                       ),
-                      alignment: Alignment.centerLeft,
                       child: Text(
-                        _materialSeleccionado?.unidad ?? '—',
+                        materialSel.unidad.isEmpty ? '—' : materialSel.unidad,
                         style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                          color: Color(0xFF757575),
+                          fontSize: 15,
+                          color: AtelierColors.negroSuave,
                         ),
                       ),
                     ),
@@ -190,103 +141,48 @@ class _GastoFormState extends State<GastoForm> {
               ),
             ],
           ),
-        ),
 
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
+          const SizedBox(height: 20),
+
+          // ---- Fecha + Monto ----
+          Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('Fecha de compra *'),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _fecha,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) setState(() => _fecha = picked);
-                      },
-                      child: Container(
-                        height: 40,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFE0E0E0)),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              DateFormat('dd/MM/yyyy').format(_fecha),
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const Spacer(),
-                            const Icon(
-                              Icons.calendar_today,
-                              size: 18,
-                              color: Color(0xFFE85E98),
-                            ),
-                          ],
-                        ),
+                    const Text(
+                      'Fecha de compra *',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AtelierColors.grisTexto,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const _Label('Monto abonado (\$) *'),
                     const SizedBox(height: 8),
                     Container(
                       height: 40,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        border: Border.all(color: const Color(0xFFE0E0E0)),
+                        border: Border.all(color: AtelierColors.grisBorde),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         children: [
-                          const Text(
-                            '\$ ',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
+                          Text(
+                            _fechaHoy(),
+                            style: const TextStyle(
                               fontSize: 16,
-                              color: Color(0xFF757575),
+                              color: AtelierColors.negroSuave,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Expanded(
-                            child: TextField(
-                              controller: _montoController,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500,
-                                fontSize: 16,
-                                color: Color(0xFF212121),
-                              ),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none,
-                                hintText: '0',
-                                hintStyle: TextStyle(color: Color(0xFF757575)),
-                              ),
-                            ),
+                          const Spacer(),
+                          const Icon(
+                            Icons.calendar_today,
+                            size: 18,
+                            color: AtelierColors.rosa,
                           ),
                         ],
                       ),
@@ -294,130 +190,357 @@ class _GastoFormState extends State<GastoForm> {
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Monto abonado (\$) *',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AtelierColors.grisTexto,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _montoCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: _inputDecorationMonto('\$ 0'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
 
-        const SizedBox(height: 32),
-        _Botones(
-          onCancelar: () => Navigator.pop(context),
-          onRegistrar: _onRegistrarPressed,
-        ),
-      ],
-    );
-  }
-
-  void _onRegistrarPressed() {
-    if (_materialSeleccionado == null) {
-      _snack('Seleccione un material');
-      return;
-    }
-    final cantidad = double.tryParse(_cantidadController.text) ?? 0;
-    final monto = double.tryParse(_montoController.text) ?? 0;
-
-    if (cantidad <= 0) {
-      _snack('Ingrese la cantidad comprada');
-      return;
-    }
-    if (monto <= 0) {
-      _snack('Ingrese el monto abonado');
-      return;
-    }
-
-    final gasto = {
-      'materialId': _materialSeleccionado!.id,
-      'varianteId': _varianteSeleccionada?.id,
-      'cantidad': cantidad,
-      'unidad': _materialSeleccionado!.unidad,
-      'monto': monto,
-      'fecha': _fecha.toIso8601String(),
-    };
-
-    widget.onRegistrar(gasto);
-  }
-
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-}
-
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontFamily: 'Inter',
-        fontSize: 15,
-        color: Color(0xFF757575),
-      ),
-    ),
-  );
-}
-
-class _Botones extends StatelessWidget {
-  final VoidCallback onCancelar;
-  final VoidCallback onRegistrar;
-  const _Botones({required this.onCancelar, required this.onRegistrar});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: OutlinedButton(
-                onPressed: onCancelar,
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFE85E98)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    side: const BorderSide(color: AtelierColors.rosa),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Cancelar',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Color(0xFFE85E98),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: AtelierColors.rosa,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: onRegistrar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE85E98),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    backgroundColor: AtelierColors.rosaClaro,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Registrar',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.white,
+                  onPressed: _guardar,
+                  child: const Text(
+                    'Registrar',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  /// Listado plegable de materiales (acordeón simple).
+  Widget _listadoMateriales() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AtelierColors.grisBorde),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(
+              () => _listaMaterialesAbierta = !_listaMaterialesAbierta,
+            ),
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _materialId == null
+                        ? 'Seleccionar material . . .'
+                        : widget.materiales
+                              .firstWhere((m) => m.id == _materialId)
+                              .nombre,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: _materialId == null
+                          ? FontWeight.w500
+                          : FontWeight.w600,
+                      color: _materialId == null
+                          ? AtelierColors.grisTexto
+                          : AtelierColors.negroSuave,
+                    ),
+                  ),
+                  Icon(
+                    _listaMaterialesAbierta
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AtelierColors.rosa,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_listaMaterialesAbierta)
+            ...widget.materiales.asMap().entries.map((e) {
+              final m = e.value;
+              final esUltimo = e.key == widget.materiales.length - 1;
+              return Column(
+                children: [
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    color: _materialId == m.id
+                        ? AtelierColors.rosaClaro.withOpacity(0.25)
+                        : Colors.transparent,
+                    child: InkWell(
+                      onTap: () => setState(() {
+                        _materialId = m.id;
+                        _varianteId = null;
+                        _listaMaterialesAbierta = false;
+                      }),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(m.nombre, style: const TextStyle(fontSize: 14)),
+                          Text(
+                            'Stock: ${m.cantidad.toStringAsFixed(0)} ${m.unidad}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AtelierColors.grisTexto,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (!esUltimo)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 1),
+                        painter: _DashedLinePainter(
+                          color: AtelierColors.grisBorde,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  /// Listado plegable de variantes (aparece solo si el material las tiene).
+  Widget _listadoVariantes(List<Variante> variantes) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AtelierColors.grisBorde),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(
+              () => _listaVariantesAbierta = !_listaVariantesAbierta,
+            ),
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _varianteId == null
+                        ? 'Seleccionar variante . . .'
+                        : variantes
+                              .firstWhere((v) => v.id == _varianteId)
+                              .nombre,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: _varianteId == null
+                          ? FontWeight.w500
+                          : FontWeight.w600,
+                      color: _varianteId == null
+                          ? AtelierColors.grisTexto
+                          : AtelierColors.negroSuave,
+                    ),
+                  ),
+                  Icon(
+                    _listaVariantesAbierta
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AtelierColors.rosa,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_listaVariantesAbierta)
+            ...variantes.asMap().entries.map((e) {
+              final v = e.value;
+              final esUltimo = e.key == variantes.length - 1;
+              return Column(
+                children: [
+                  InkWell(
+                    onTap: () => setState(() {
+                      _varianteId = v.id;
+                      _listaVariantesAbierta = false;
+                    }),
+                    child: Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      color: _varianteId == v.id
+                          ? AtelierColors.rosaClaro.withOpacity(0.25)
+                          : Colors.transparent,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(v.nombre, style: const TextStyle(fontSize: 14)),
+                          Text(
+                            '(Stock disponible: ${v.cantidad.toStringAsFixed(0)})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AtelierColors.grisTexto,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (!esUltimo)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 1),
+                        painter: _DashedLinePainter(
+                          color: AtelierColors.grisBorde,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) => InputDecoration(
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AtelierColors.grisBorde),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AtelierColors.grisBorde),
+    ),
+  );
+
+  InputDecoration _inputDecorationMonto(String hint) => InputDecoration(
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AtelierColors.grisBorde),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AtelierColors.grisBorde),
+    ),
+  );
+
+  String _fechaHoy() {
+    final h = DateTime.now();
+    return '${h.day.toString().padLeft(2, '0')}/${h.month.toString().padLeft(2, '0')}/${h.year}';
+  }
+
+  void _guardar() {
+    final monto = double.tryParse(_montoCtrl.text) ?? 0;
+    if (_materialId == null || monto <= 0) return;
+
+    final material = widget.materiales.firstWhere(
+      (m) => m.id == _materialId,
+      orElse: () => widget.materiales.first,
+    );
+
+    final gasto = Gasto(
+      materialId: _materialId,
+      materialNombre: material.nombre,
+      varianteId: _varianteId,
+      varianteNombre: _varianteId != null
+          ? (widget.variantesPorMaterial[_materialId!] ?? [])
+                .firstWhere((v) => v.id == _varianteId)
+                .nombre
+          : null,
+      cantidad: double.tryParse(_cantidadCtrl.text) ?? 0,
+      monto: monto,
+    );
+
+    widget.onRegistrar(gasto);
+    setState(() {
+      _materialId = null;
+      _varianteId = null;
+      _cantidadCtrl.clear();
+      _montoCtrl.clear();
+    });
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  _DashedLinePainter({required this.color});
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const dashWidth = 4.0;
+    const dashSpace = 4.0;
+    double startX = 0;
+    while (startX < size.width) {
+      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models/movimiento_models.dart';
-import 'lista_desplegable.dart';
+import '../models/pedido.dart';
+import 'selector_articulo_acordeon.dart';
 
 class PedidoForm extends StatefulWidget {
   final List<Producto> productos;
   final List<Combo> combos;
-  final void Function(Map<String, dynamic> pedido) onRegistrar;
+  final void Function(Pedido pedido) onRegistrar;
 
   const PedidoForm({
     super.key,
@@ -21,328 +21,545 @@ class PedidoForm extends StatefulWidget {
 }
 
 class _PedidoFormState extends State<PedidoForm> {
-  ItemLista? _itemSeleccionado;
-  final TextEditingController _clienteController = TextEditingController();
-  final TextEditingController _montoController = TextEditingController();
-  final TextEditingController _observacionesController =
-      TextEditingController();
-  DateTime _fechaEntrega = DateTime.now().add(const Duration(days: 1));
+  final _clienteCtrl = TextEditingController();
+  final _montoCtrl = TextEditingController();
+  final _observacionesCtrl = TextEditingController();
+  final _cantidadCtrl = TextEditingController(text: '1');
+
+  // Artículo seleccionado (puede ser producto o combo, pero uno solo)
+  String? _tipoSeleccionado;
+  String? _idSeleccionado;
+  String _nombreItem = '';
+  DateTime _fechaEntrega = DateTime.now().add(const Duration(days: 7));
 
   @override
   void dispose() {
-    _clienteController.dispose();
-    _montoController.dispose();
-    _observacionesController.dispose();
+    _clienteCtrl.dispose();
+    _montoCtrl.dispose();
+    _observacionesCtrl.dispose();
+    _cantidadCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-
-        // ── Artículo encargado ─────────────────────────
-        const _Label('Artículo encargado *'),
-        const SizedBox(height: 8),
-        ListaDesplegable(
-          productos: widget.productos
-              .map(
-                (p) => ItemLista(
-                  id: p!.id,
-                  nombre: p.nombre,
-                  precio: p.precio,
-                ),
-              )
-              .toList(),
-          combos: widget.combos
-              .map(
-                (c) => ItemLista(
-                  id: c!.id,
-                  nombre: c.nombre,
-                  precio: c.precio,
-                  esCombo: true,
-                ),
-              )
-              .toList(),
-          seleccionadoId: _itemSeleccionado?.id,
-          onSeleccionado: (item) {
-            setState(() {
-              _itemSeleccionado = item;
-              _montoController.text = item.precio.toStringAsFixed(0);
-            });
-          },
-        ),
-
-        const SizedBox(height: 20),
-
-        // ── Nombre del cliente ─────────────────────────
-        const _Label('Nombre del Cliente *'),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _InputBox(
-            controller: _clienteController,
-            hint: 'Ingresar Nombre . . .',
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ---- Artículo encargado ----
+          const Text(
+            'Artículo encargado *',
+            style: TextStyle(fontSize: 15, color: AtelierColors.grisTexto),
           ),
-        ),
+          const SizedBox(height: 8),
 
-        const SizedBox(height: 20),
-
-        // ── Fecha de entrega (solo futuras) ────────────
-        const _Label('Fecha de entrega pactada *'),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GestureDetector(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _fechaEntrega,
-                firstDate: DateTime.now(),
-                lastDate: DateTime(2100),
-              );
-              if (picked != null) setState(() => _fechaEntrega = picked);
-            },
+          // Campo que abre el bottom sheet
+          InkWell(
+            onTap: _abrirSelectorArticulo,
             child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: const Color(0xFFE0E0E0)),
+                border: Border.all(color: AtelierColors.grisBorde),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _idSeleccionado == null
+                          ? 'Seleccionar Artículo . . .'
+                          : _nombreItem,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: _idSeleccionado == null
+                            ? FontWeight.w500
+                            : FontWeight.w600,
+                        color: _idSeleccionado == null
+                            ? AtelierColors.grisTexto
+                            : AtelierColors.negroSuave,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: AtelierColors.rosa,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ---- Cantidad + Nombre cliente ----
+          Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Cantidad *',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AtelierColors.grisTexto,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _cantidadCtrl,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      decoration: _inputDecoration('1'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Nombre del Cliente *',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AtelierColors.grisTexto,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _clienteCtrl,
+                      decoration: _inputDecoration('Ingresar Nombre . . .'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ---- Fecha de entrega ----
+          const Text(
+            'Fecha de entrega pactada *',
+            style: TextStyle(fontSize: 15, color: AtelierColors.grisTexto),
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: _seleccionarFecha,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: AtelierColors.grisBorde),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
                   Text(
-                    DateFormat('dd/MM/yyyy').format(_fechaEntrega),
+                    _formatearFecha(_fechaEntrega),
                     style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
                       fontSize: 16,
-                      color: Color(0xFF212121),
+                      color: AtelierColors.negroSuave,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const Spacer(),
                   const Icon(
                     Icons.calendar_today,
                     size: 18,
-                    color: Color(0xFFE85E98),
+                    color: AtelierColors.rosa,
                   ),
                 ],
               ),
             ),
           ),
-        ),
 
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-        // ── Monto pactado ──────────────────────────────
-        const _Label('Monto pactado (\$) *'),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _InputBox(
-            controller: _montoController,
-            hint: '\$ 0',
-            keyboard: TextInputType.number,
-            prefix: '\$ ',
+          // ---- Monto pactado ----
+          const Text(
+            'Monto pactado (\$) *',
+            style: TextStyle(fontSize: 15, color: AtelierColors.grisTexto),
           ),
-        ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _montoCtrl,
+            keyboardType: TextInputType.number,
+            decoration: _inputDecoration('\$ 0'),
+          ),
 
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-        // ── Observaciones ──────────────────────────────
-        const _Label('Observaciones (Opcional)'),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE0E0E0)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              controller: _observacionesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Agregar notas adicionales, seña, entrega . . .',
-                hintStyle: TextStyle(color: Color(0xFF757575)),
-                border: InputBorder.none,
-              ),
+          // ---- Observaciones ----
+          const Text(
+            'Observaciones (Opcional)',
+            style: TextStyle(fontSize: 15, color: AtelierColors.grisTexto),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _observacionesCtrl,
+            maxLines: 3,
+            decoration: _inputDecoration(
+              'Agregar Notas adicionales, seña, entrega . . .',
             ),
           ),
-        ),
 
-        const SizedBox(height: 32),
-        _Botones(
-          onCancelar: () => Navigator.pop(context),
-          onRegistrar: _onRegistrarPressed,
-        ),
-      ],
-    );
-  }
+          const SizedBox(height: 28),
 
-  void _onRegistrarPressed() {
-    if (_itemSeleccionado == null) {
-      _snack('Seleccione un artículo');
-      return;
-    }
-    if (_clienteController.text.trim().isEmpty) {
-      _snack('Ingrese el nombre del cliente');
-      return;
-    }
-    if (_fechaEntrega.isBefore(DateTime.now())) {
-      _snack('La fecha de entrega debe ser futura');
-      return;
-    }
-
-    // ⚠ Sprint 4 - Paso 7: un pedido NO descuenta stock todavía.
-    final pedido = {
-      'tipo': _itemSeleccionado!.esCombo ? 'combo' : 'producto',
-      'itemId': _itemSeleccionado!.id,
-      'cliente': _clienteController.text.trim(),
-      'fechaEntrega': _fechaEntrega.toIso8601String(),
-      'monto': double.tryParse(_montoController.text) ?? 0,
-      'observaciones': _observacionesController.text.trim(),
-      'estado': 'pendiente',
-    };
-
-    widget.onRegistrar(pedido);
-  }
-
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// Widgets auxiliares
-// ─────────────────────────────────────────────────────────
-
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w400,
-          fontSize: 15,
-          color: Color(0xFF757575),
-        ),
-      ),
-    );
-  }
-}
-
-class _InputBox extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final TextInputType keyboard;
-  final String? prefix;
-
-  const _InputBox({
-    required this.controller,
-    required this.hint,
-    this.keyboard = TextInputType.text,
-    this.prefix,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboard,
-        decoration: InputDecoration(
-          hintText: hint,
-          prefixText: prefix,
-          hintStyle: const TextStyle(color: Color(0xFF757575)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Botones extends StatelessWidget {
-  final VoidCallback onCancelar;
-  final VoidCallback onRegistrar;
-  const _Botones({required this.onCancelar, required this.onRegistrar});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: OutlinedButton(
-                onPressed: onCancelar,
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFE85E98)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    side: const BorderSide(color: AtelierColors.rosa),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Cancelar',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Color(0xFFE85E98),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: AtelierColors.rosa,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: onRegistrar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE85E98),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    backgroundColor: AtelierColors.rosaClaro,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Registrar',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.white,
+                  onPressed: _guardar,
+                  child: const Text(
+                    'Registrar',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) => InputDecoration(
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AtelierColors.grisBorde),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AtelierColors.grisBorde),
+    ),
+  );
+
+  Future<void> _seleccionarFecha() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fechaEntrega,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AtelierColors.rosa,
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _fechaEntrega = picked);
+  }
+
+  /// Bottom sheet con el acordeón doble del Figma.
+  void _abrirSelectorArticulo() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SelectorArticuloSheet(
+        productos: widget.productos,
+        combos: widget.combos,
+        idSeleccionado: _idSeleccionado,
+        onSeleccionar: (tipo, id, nombre, precio) {
+          setState(() {
+            _tipoSeleccionado = tipo;
+            _idSeleccionado = id;
+            _nombreItem = nombre;
+            _montoCtrl.text = precio.toInt().toString();
+          });
+        },
+      ),
+    );
+  }
+
+  String _formatearFecha(DateTime f) {
+    return '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}/${f.year}';
+  }
+
+  void _guardar() {
+    if (_clienteCtrl.text.trim().isEmpty || _idSeleccionado == null) return;
+
+    final pedido = Pedido(
+      productoId: _tipoSeleccionado == 'producto' ? _idSeleccionado : null,
+      comboId: _tipoSeleccionado == 'combo' ? _idSeleccionado : null,
+      cliente: _clienteCtrl.text.trim(),
+      nombreItem: _nombreItem,
+      cantidad: int.tryParse(_cantidadCtrl.text) ?? 1,
+      monto: double.tryParse(_montoCtrl.text) ?? 0,
+      fechaEntrega: _fechaEntrega,
+      fechaRegistro: DateTime.now(),
+      observaciones: _observacionesCtrl.text.trim(),
+      estado: 'pendiente',
+    );
+
+    widget.onRegistrar(pedido);
+    setState(() {
+      _idSeleccionado = null;
+      _tipoSeleccionado = null;
+      _nombreItem = '';
+      _clienteCtrl.clear();
+      _montoCtrl.clear();
+      _observacionesCtrl.clear();
+      _cantidadCtrl.text = '1';
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// BOTTOM SHEET CON EL ACORDEÓN PLEGABLE DEL FIGMA
+// ---------------------------------------------------------------------------
+
+class _SelectorArticuloSheet extends StatefulWidget {
+  final List<Producto> productos;
+  final List<Combo> combos;
+  final String? idSeleccionado;
+  final void Function(String tipo, String id, String nombre, double precio)
+  onSeleccionar;
+
+  const _SelectorArticuloSheet({
+    required this.productos,
+    required this.combos,
+    required this.idSeleccionado,
+    required this.onSeleccionar,
+  });
+
+  @override
+  State<_SelectorArticuloSheet> createState() => _SelectorArticuloSheetState();
+}
+
+class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
+  bool _productosAbierto = true;
+  bool _combosAbierto = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AtelierColors.grisFondo,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ---- Tirador ----
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 35,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AtelierColors.grisBorde,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // ---- Título con X rosado ----
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: AtelierColors.grisBorde),
+              ),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'Seleccionar Artículo',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AtelierColors.negroSuave,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(
+                    Icons.close,
+                    color: AtelierColors.rosa,
+                    size: 24,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ---- Acordeón 1: PRODUCTOS INDIVIDUALES ----
+          _acordeon(
+            titulo: 'PRODUCTOS INDIVIDUALES',
+            abierto: _productosAbierto,
+            onToggle: () =>
+                setState(() => _productosAbierto = !_productosAbierto),
+            items: widget.productos
+                .map(
+                  (p) => FilaArticulo(
+                    nombre: p.nombre,
+                    precio: '\$ ${_formatear(p.precio)}',
+                    seleccionado: widget.idSeleccionado == p.id,
+                    onTap: () {
+                      widget.onSeleccionar(
+                        'producto',
+                        p.id,
+                        p.nombre,
+                        p.precio,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ---- Acordeón 2: COMBOS Y PAQUETES ----
+          _acordeon(
+            titulo: 'COMBOS Y PAQUETES',
+            abierto: _combosAbierto,
+            onToggle: () => setState(() => _combosAbierto = !_combosAbierto),
+            items: widget.combos
+                .map(
+                  (c) => FilaArticulo(
+                    nombre: c.nombre,
+                    precio: '\$ ${_formatear(c.precio)}',
+                    seleccionado: widget.idSeleccionado == c.id,
+                    onTap: () {
+                      widget.onSeleccionar('combo', c.id, c.nombre, c.precio);
+                      Navigator.pop(context);
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _acordeon({
+    required String titulo,
+    required bool abierto,
+    required VoidCallback onToggle,
+    required List<Widget> items,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AtelierColors.grisBorde),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: abierto ? AtelierColors.grisFila : Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(8),
+                  bottom: Radius.circular(abierto ? 0 : 8),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    titulo,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AtelierColors.negroSuave,
+                    ),
+                  ),
+                  Icon(
+                    abierto
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AtelierColors.rosa,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (abierto)
+            Container(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: AtelierColors.grisBorde)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(8),
+                ),
+              ),
+              child: Column(children: items),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatear(double v) {
+    return v.toInt().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
     );
   }
 }

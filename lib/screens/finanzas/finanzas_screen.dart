@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:miemprendimiento/widgets/gasto_form.dart' as gasto_widget;
-import 'package:miemprendimiento/widgets/pedido_form.dart' as pedido_widget;
 
-import '../../models/movimiento_models.dart';
+import '../../models/material_consumo.dart' as matcons;
+import '../../models/movimiento_models.dart' as mov;
 import '../../providers/finanzas_provider.dart';
+import '../../providers/inventario_provider.dart';
 import '../../widgets/tipo_movimiento_selector.dart';
 import '../../widgets/venta_form.dart';
+import '../../widgets/gasto_form.dart';
+import '../../widgets/pedido_form.dart';
 import 'historial_screen.dart';
 import 'reporte_screen.dart';
 
-/// Pantalla central de Finanzas con la navegación superior oficial de Figma:
-/// [ Registrar | Historial | Reporte ]
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});
 
@@ -20,58 +20,22 @@ class FinanzasScreen extends StatefulWidget {
 }
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
-  // 0: Registrar, 1: Historial, 2: Reporte
   int _indiceActivo = 1;
-  TipoMovimiento _tipo = TipoMovimiento.venta;
-
-  // Datos de prueba (reemplazar por Providers en producción)
-  final List<Producto> _productos = [
-    Producto(id: 'p1', nombre: 'Tiara Strass', precio: 4500),
-    Producto(id: 'p2', nombre: 'Vaso Personalizado Glitter', precio: 3200),
-    Producto(id: 'p3', nombre: 'Tutú de Tul', precio: 5800),
-  ];
-  final List<Combo> _combos = [
-    Combo(id: 'c1', nombre: 'Combo Cumpleaños Premium', precio: 12500),
-    Combo(id: 'c2', nombre: 'Pack Egresados', precio: 8000),
-  ];
-  final List<MaterialItem> _materiales = [
-    MaterialItem(
-      id: 'm1',
-      nombre: 'Cinta de Raso 25mm',
-      unidad: 'Metros',
-      cantidad: 50,
-      stockMinimo: 5,
-    ),
-    MaterialItem(
-      id: 'm2',
-      nombre: 'Gemas Strass',
-      unidad: 'u',
-      cantidad: 200,
-      stockMinimo: 20,
-    ),
-    MaterialItem(
-      id: 'm3',
-      nombre: 'Tul',
-      unidad: 'Metros',
-      cantidad: 30,
-      stockMinimo: 5,
-    ),
-  ];
+  mov.TipoMovimiento _tipo = mov.TipoMovimiento.venta;
 
   @override
   void initState() {
     super.initState();
-    // Lectura inicial de tablas SQLite al abrir Finanzas
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<FinanzasProvider>();
-      provider.cargarVentas();
-      provider.cargarGastos();
-      provider.cargarPedidos();
+      final fin = context.read<FinanzasProvider>();
+      fin.cargarVentas();
+      fin.cargarGastos();
+      fin.cargarPedidos();
+      final inv = context.read<InventarioProvider>();
+      inv.cargarMateriales();
+      inv.cargarProductos();
+      inv.cargarCombos();
     });
-    //WidgetsBinding.instance.addPostFrameCallback((_) {
-    //Inyectamos a Elena Gómez para poblar la lista y poder probar el detalle
-    //  context.read<FinanzasProvider>().cargarDatosDemostracion();
-    //});
   }
 
   @override
@@ -129,8 +93,8 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
               ],
             ),
           ),
-          HistorialScreen(),
-          ReporteScreen(),
+          const HistorialScreen(),
+          const ReporteScreen(),
         ],
       ),
     );
@@ -138,13 +102,8 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
   Widget _pestanaSuperior(String titulo, int indice) {
     final bool seleccionado = _indiceActivo == indice;
-
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _indiceActivo = indice;
-        });
-      },
+      onTap: () => setState(() => _indiceActivo = indice),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
         decoration: BoxDecoration(
@@ -170,90 +129,151 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   }
 
   Widget _buildFormulario() {
+    // Leemos del InventarioProvider REAL, no de listas hardcodeadas.
+    final inv = context.watch<InventarioProvider>();
+
+    final productos = inv.productos
+        .map((p) => mov.Producto(id: p.id, nombre: p.nombre, precio: p.precio))
+        .toList();
+
+    final combos = inv.combos
+        .map((c) => mov.Combo(id: c.id, nombre: c.nombre, precio: c.precio))
+        .toList();
+
+    final materiales = inv.materiales
+        .map(
+          (m) => mov.MaterialItem(
+            id: m.id,
+            nombre: m.nombre,
+            unidad: m.unidad,
+            cantidad: m.cantidad,
+            stockMinimo: m.stockMinimo,
+          ),
+        )
+        .toList();
+
+    // Variantes reales por material
+    final Map<String, List<mov.Variante>> variantesPorMaterial = {
+      for (final entry in inv.variantes.entries)
+        entry.key: entry.value
+            .map(
+              (v) => mov.Variante(
+                id: v.id,
+                materialId: v.materialId,
+                nombre: v.nombre,
+                cantidad: v.cantidad,
+              ),
+            )
+            .toList(),
+    };
+
     switch (_tipo) {
-      case TipoMovimiento.venta:
+      case mov.TipoMovimiento.venta:
         return VentaForm(
-          productos: _productos,
-          combos: _combos,
-          materiales: _materiales,
-          variantesPorMaterial: _variantesPorMaterial(),
-          onRegistrar: (venta, consumos) {
-            // Sprint 4 - Paso 5: registrar venta con transacción (descuenta stock)
-            _registrarVenta(venta, consumos);
-          },
+          productos: productos,
+          combos: combos,
+          materiales: materiales,
+          variantesPorMaterial: variantesPorMaterial,
+          onRegistrar: _registrarVenta,
         );
 
-      case TipoMovimiento.gasto:
-        return gasto_widget.GastoForm(
-          materiales: _materiales,
-          variantesPorMaterial: _variantesPorMaterial(),
-
-          onRegistrar: (gasto) {
-            // Sprint 4 - Paso 6: registrar gasto con transacción (suma stock)
-            _registrarGasto(gasto);
-          },
+      case mov.TipoMovimiento.gasto:
+        return GastoForm(
+          materiales: materiales,
+          variantesPorMaterial: variantesPorMaterial,
+          onRegistrar: _registrarGasto,
         );
 
-      case TipoMovimiento.pedido:
-        return pedido_widget.PedidoForm(
-          productos: _productos,
-          combos: _combos,
-          onRegistrar: (pedido) {
-            // Sprint 4 - Paso 7: registrar pedido (NO descuenta stock todavía)
-            _registrarPedido(pedido);
-          },
+      case mov.TipoMovimiento.pedido:
+        return PedidoForm(
+          productos: productos,
+          combos: combos,
+          onRegistrar: _registrarPedido,
         );
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // PERSISTENCIA REAL: escribe en FinanzasProvider e InventarioProvider
+  // ---------------------------------------------------------------------------
 
   Future<void> _registrarVenta(
     dynamic venta,
-    List<MaterialConsumo> consumos,
+    List<mov.MaterialConsumo> consumos,
   ) async {
-    // Validar stock ANTES de abrir transacción (Sprint 4 - Paso 4)
-    if (!hayStockSuficiente(consumos, _materiales)) {
-      _mostrarAlerta('No hay stock, revisar materiales');
+    final messenger = ScaffoldMessenger.maybeOf(context);
+
+    if (!hayStockSuficiente(consumos, _materialesComoMov())) {
+      _mostrarAlerta('No hay stock suficiente, revisá los materiales.');
       return;
     }
 
-    // Sprint 4 - Paso 5: db.transaction(...) con descuento de stock
-    // await db.transaction((txn) async {
-    //   await txn.insert('ventas', venta.toMap());
-    //   for (final c in consumos) {
-    //     await txn.rawUpdate(
-    //       'UPDATE materiales SET cantidad = cantidad - ? WHERE id = ?',
-    //       [c.cantidad, c.materialId],
-    //     );
-    //   }
-    // });
+    final fin = context.read<FinanzasProvider>();
+    await fin.registrarVenta(venta, consumos as dynamic);
+
+    final inv = context.read<InventarioProvider>();
+    await inv.cargarMateriales();
+    await inv.cargarProductos();
+    await inv.cargarCombos();
 
     if (!mounted) return;
-    _mostrarSnack('Venta registrada correctamente');
-    Navigator.pop(context);
+    messenger?.showSnackBar(
+      const SnackBar(content: Text('Venta registrada correctamente')),
+    );
   }
 
   Future<void> _registrarGasto(dynamic gasto) async {
-    // Sprint 4 - Paso 6: mismo patrón, sumando stock
-    // await db.transaction((txn) async {
-    //   await txn.insert('gastos', gasto.toMap());
-    //   await txn.rawUpdate(
-    //     'UPDATE materiales SET cantidad = cantidad + ? WHERE id = ?',
-    //     [gasto.cantidad, gasto.materialId],
-    //   );
-    // });
+    final fin = context.read<FinanzasProvider>();
+    await fin.registrarGasto(gasto);
+
+    final inv = context.read<InventarioProvider>();
+    await inv.cargarMateriales();
+    await inv.cargarProductos();
+    await inv.cargarCombos();
 
     if (!mounted) return;
     _mostrarSnack('Gasto registrado correctamente');
-    Navigator.pop(context);
   }
 
   Future<void> _registrarPedido(dynamic pedido) async {
-    // Sprint 4 - Paso 7: pedido NO toca stock
-    // await db.insert('pedidos', pedido.toMap());
+    final fin = context.read<FinanzasProvider>();
+    await fin.registrarPedido(pedido);
 
     if (!mounted) return;
-    _mostrarSnack('Pedido registrado (stock se descuenta al entregar)');
-    Navigator.pop(context);
+    _mostrarSnack('Pedido registrado (el stock se descuenta al entregar)');
+  }
+
+  bool hayStockSuficiente(
+    List<mov.MaterialConsumo> consumos,
+    List<mov.MaterialItem> materiales,
+  ) {
+    final stockPorMaterial = {
+      for (final material in materiales) material.id: material.cantidad,
+    };
+
+    for (final consumo in consumos) {
+      final cantidadDisponible = stockPorMaterial[consumo.materialId] ?? 0;
+      if (consumo.cantidad > cantidadDisponible) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  List<mov.MaterialItem> _materialesComoMov() {
+    final inv = context.read<InventarioProvider>();
+    return inv.materiales
+        .map(
+          (m) => mov.MaterialItem(
+            id: m.id,
+            nombre: m.nombre,
+            unidad: m.unidad,
+            cantidad: m.cantidad,
+            stockMinimo: m.stockMinimo,
+          ),
+        )
+        .toList();
   }
 
   void _mostrarAlerta(String mensaje) {
@@ -271,28 +291,6 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       ),
     );
   }
-
-  // Simulación: en producción esto sale de InventarioProvider
-  final Map<String, List<Variante>> _variantesPorMaterialMap = {
-    'm1': [
-      Variante(id: 'v1', materialId: 'm1', nombre: 'Rojo', cantidad: 12),
-      Variante(id: 'v2', materialId: 'm1', nombre: 'Azul', cantidad: 30),
-      Variante(id: 'v3', materialId: 'm1', nombre: 'Dorado', cantidad: 5),
-    ],
-    'm2': [
-      Variante(id: 'v4', materialId: 'm2', nombre: 'Roja', cantidad: 200),
-      Variante(
-        id: 'v5',
-        materialId: 'm2',
-        nombre: 'Rosa Pastel',
-        cantidad: 150,
-      ),
-    ],
-    // 'm3' (Tul) no tiene variantes, por eso no aparece
-  };
-
-  Map<String, List<Variante>> _variantesPorMaterial() =>
-      _variantesPorMaterialMap;
 
   void _mostrarSnack(String mensaje) {
     ScaffoldMessenger.of(context)
