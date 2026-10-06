@@ -27,7 +27,9 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
@@ -44,5 +46,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Configuración local de Android (ruta del SDK de cada PC) y firma de la app
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
 # Widget Preview related
 .widget_preview/
+
+# Windows related
+/windows/flutter/ephemeral/
