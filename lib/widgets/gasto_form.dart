@@ -320,7 +320,7 @@ class _GastoFormState extends State<GastoForm> {
                     height: 48,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     color: _materialId == m.id
-                        ? AtelierColors.rosaClaro.withOpacity(0.25)
+                        ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
                         : Colors.transparent,
                     child: InkWell(
                       onTap: () => setState(() {
@@ -422,7 +422,7 @@ class _GastoFormState extends State<GastoForm> {
                       height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       color: _varianteId == v.id
-                          ? AtelierColors.rosaClaro.withOpacity(0.25)
+                          ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
                           : Colors.transparent,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

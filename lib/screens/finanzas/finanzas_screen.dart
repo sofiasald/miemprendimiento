@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../models/movimiento_models.dart' as mov;
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
-import '../../services/db_helper.dart';
 import '../../widgets/tipo_movimiento_selector.dart';
 import '../../widgets/venta_form.dart';
 import '../../widgets/gasto_form.dart';
@@ -13,19 +12,24 @@ import 'historial_screen.dart';
 import 'reporte_screen.dart';
 
 class FinanzasScreen extends StatefulWidget {
-  const FinanzasScreen({super.key});
+  final int indiceInicial;
+  final dynamic tipoInicial;
+
+  const FinanzasScreen({super.key, this.indiceInicial = 0, this.tipoInicial});
 
   @override
   State<FinanzasScreen> createState() => _FinanzasScreenState();
 }
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
-  int _indiceActivo = 1;
-  mov.TipoMovimiento _tipo = mov.TipoMovimiento.venta;
+  late int _indiceActivo;
+  late mov.TipoMovimiento _tipo;
 
   @override
   void initState() {
     super.initState();
+    _indiceActivo = widget.indiceInicial;
+    _tipo = widget.tipoInicial ?? mov.TipoMovimiento.venta;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final fin = context.read<FinanzasProvider>();
       fin.cargarVentas();

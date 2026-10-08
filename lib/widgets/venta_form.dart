@@ -93,7 +93,7 @@ class _VentaFormState extends State<VentaForm> {
                   decoration: BoxDecoration(
                     color: _tipoActivo == 'producto'
                         ? AtelierColors.rosaSuave
-                        : AtelierColors.rosaSuave.withOpacity(0.35),
+                        : AtelierColors.rosaSuave.withValues(alpha: 0.35),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -114,7 +114,7 @@ class _VentaFormState extends State<VentaForm> {
                     fontWeight: FontWeight.w600,
                     color: _tipoActivo == 'producto'
                         ? AtelierColors.negroSuave
-                        : AtelierColors.negroSuave.withOpacity(0.55),
+                        : AtelierColors.negroSuave.withValues(alpha: 0.55),
                   ),
                 ),
               ),
@@ -135,7 +135,7 @@ class _VentaFormState extends State<VentaForm> {
                   decoration: BoxDecoration(
                     color: _tipoActivo == 'combo'
                         ? AtelierColors.rosaSuave
-                        : AtelierColors.rosaSuave.withOpacity(0.35),
+                        : AtelierColors.rosaSuave.withValues(alpha: 0.35),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -156,7 +156,7 @@ class _VentaFormState extends State<VentaForm> {
                     fontWeight: FontWeight.w600,
                     color: _tipoActivo == 'combo'
                         ? AtelierColors.negroSuave
-                        : AtelierColors.negroSuave.withOpacity(0.55),
+                        : AtelierColors.negroSuave.withValues(alpha: 0.55),
                   ),
                 ),
               ),
@@ -261,7 +261,7 @@ class _VentaFormState extends State<VentaForm> {
                                   horizontal: 14,
                                 ),
                                 color: seleccionado
-                                    ? AtelierColors.rosaClaro.withOpacity(0.25)
+                                    ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
                                     : Colors.transparent,
                                 child: Row(
                                   mainAxisAlignment:
@@ -421,7 +421,7 @@ class _VentaFormState extends State<VentaForm> {
                     labelText: 'Material',
                     isDense: true,
                   ),
-                  value: c.materialId,
+                  initialValue: c.materialId,
                   items: widget.materiales
                       .map(
                         (m) => DropdownMenuItem(
@@ -448,7 +448,7 @@ class _VentaFormState extends State<VentaForm> {
                 labelText: 'Variante',
                 isDense: true,
               ),
-              value: c.varianteId,
+              initialValue: c.varianteId,
               items: variantes
                   .map(
                     (v) => DropdownMenuItem(

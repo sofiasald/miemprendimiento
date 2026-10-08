@@ -41,7 +41,7 @@ class FilaArticulo extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: seleccionado
-                  ? AtelierColors.rosaClaro.withOpacity(0.25)
+                  ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
                   : Colors.transparent,
               border: Border(
                 left: BorderSide(color: AtelierColors.grisBorde, width: 1),

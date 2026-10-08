@@ -10,15 +10,15 @@ import '../services/db_helper.dart';
 class InventarioProvider extends ChangeNotifier {
   List<MaterialItem> _materiales = [];
   List<MaterialItem> _materialesFiltrados = [];
-  Map<String, List<Variante>> _variantes = {};
+  final Map<String, List<Variante>> _variantes = {};
   
   List<Producto> _productos = [];
   List<Producto> _productosFiltrados = [];
-  Map<String, List<ProductoMaterial>> _insumosPorProducto = {};
+  final Map<String, List<ProductoMaterial>> _insumosPorProducto = {};
 
   List<Combo> _combos = [];
   List<Combo> _combosFiltrados = [];
-  Map<String, List<ComboItem>> _itemsPorCombo = {};
+  final Map<String, List<ComboItem>> _itemsPorCombo = {};
 
   String _busqueda = '';
 
