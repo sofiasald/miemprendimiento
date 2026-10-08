@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/finanzas_provider.dart';
 //import '../../providers/inventario_provider.dart';
+import '../../services/backup_service.dart';
 
 /// Pantalla de Ajustes y Respaldo de Datos.
 /// Implementa la arquitectura offline mediante exportación e importación en formato JSON.
@@ -31,24 +32,31 @@ class _BackupScreenState extends State<BackupScreen> {
   Future<void> _ejecutarExportacion() async {
     setState(() => _estaProcesando = true);
 
-    // Simulación del volcado asíncrono de tablas a JSON
-    await Future.delayed(const Duration(milliseconds: 1400));
+    try {
+      await BackupService.exportarDatos();
 
-    final ahora = DateTime.now();
-    final horaFormateada =
-        '${ahora.day.toString().padLeft(2, '0')}/${ahora.month.toString().padLeft(2, '0')}/${ahora.year}, ${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}hs';
+      final ahora = DateTime.now();
+      final horaFormateada =
+          '${ahora.day.toString().padLeft(2, '0')}/${ahora.month.toString().padLeft(2, '0')}/${ahora.year}, ${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}hs';
 
-    if (!mounted) return;
-    setState(() {
-      _estaProcesando = false;
-      _ultimaCopia = horaFormateada;
-    });
+      if (!mounted) return;
+      setState(() {
+        _estaProcesando = false;
+        _ultimaCopia = horaFormateada;
+      });
 
-    // Muestra el modal gráfico de Exportación Exitosa diseñado en Figma
-    _mostrarModalExito(
-      titulo: 'Exportación Exitosa',
-      descripcion: 'El archivo JSON se generó y guardó correctamente.',
-    );
+      _mostrarModalExito(
+        titulo: 'Exportación Exitosa',
+        descripcion: 'El archivo JSON se generó y guardó correctamente.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _estaProcesando = false);
+      _mostrarModalError(
+        titulo: 'Error al exportar',
+        descripcion: e.toString().replaceAll('Exception: ', ''),
+      );
+    }
   }
 
   /// LÓGICA DE IMPORTACIÓN (Seleccionar JSON -> Confirmar -> Restaurar)
@@ -100,29 +108,84 @@ class _BackupScreenState extends State<BackupScreen> {
       ),
     );
 
-    // 2. Si la usuaria confirma, se ejecuta la restauración
+    // 2. Si la usuaria confirma, se ejecuta la restauración real
     if (confirmado == true) {
       setState(() => _estaProcesando = true);
 
-      // Simulación de lectura de archivo y sobreescritura de base SQLite
-      await Future.delayed(const Duration(milliseconds: 1600));
+      try {
+        final total = await BackupService.importarDatos();
 
-      if (!mounted) return;
-      setState(() => _estaProcesando = false);
+        if (!mounted) return;
+        setState(() => _estaProcesando = false);
 
-      // Recarga los providers para actualizar inventario y balances
-      context.read<FinanzasProvider>().cargarVentas();
-      context.read<FinanzasProvider>().cargarGastos();
-      context.read<FinanzasProvider>().cargarPedidos();
+        // Recarga los providers para actualizar inventario y balances en vivo
+        context.read<FinanzasProvider>().cargarVentas();
+        context.read<FinanzasProvider>().cargarGastos();
+        context.read<FinanzasProvider>().cargarPedidos();
 
-      _mostrarModalExito(
-        titulo: 'Restaurado con éxito',
-        descripcion: 'Toda tu información ha sido recuperada.',
-      );
+        _mostrarModalExito(
+          titulo: 'Restaurado con éxito',
+          descripcion: 'Se recuperaron $total registros en tu base de datos.',
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _estaProcesando = false);
+
+        final mensaje = e.toString().replaceAll('Exception: ', '');
+        // Si la usuaria simplemente canceló la selección de archivo, no mostramos error
+        if (mensaje.contains('cancelada')) return;
+
+        _mostrarModalError(
+          titulo: 'Error al restaurar',
+          descripcion: mensaje,
+        );
+      }
     }
   }
 
-  /// Despliega el componente emergente de éxito
+  /// Despliega el componente emergente de error con diseño armónico
+  void _mostrarModalError({required String titulo, required String descripcion}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFEBEE), // Rosa suave de advertencia
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.error_outline_rounded, color: Color(0xFFE53935), size: 38),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: kTextoOscuro,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                descripcion,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: kTextoGris),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _mostrarModalExito({required String titulo, required String descripcion}) {
     showDialog(
       context: context,
@@ -133,7 +196,6 @@ class _BackupScreenState extends State<BackupScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Círculo rosado con tilde
               Container(
                 width: 72,
                 height: 72,
