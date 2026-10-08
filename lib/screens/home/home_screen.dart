@@ -75,12 +75,7 @@ class HomeScreen extends StatelessWidget {
   void _irARegistrar(BuildContext context, TipoMovimiento tipo) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => FinanzasScreen(
-          indiceInicial: 0, // 0 = pestaña "Registrar"
-          tipoInicial: tipo,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => const FinanzasScreen()),
     );
   }
 }
@@ -107,7 +102,9 @@ class _BotonAccion extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: colorFondo,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         onPressed: onTap,
         child: Row(
@@ -117,7 +114,11 @@ class _BotonAccion extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               texto,
-              style: TextStyle(color: colorTexto, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: colorTexto,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
