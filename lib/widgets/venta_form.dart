@@ -225,7 +225,7 @@ class _VentaFormState extends State<VentaForm> {
                     // 👇 Color dinámico
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
-                        : AtelierColors.rosaClaro,
+                        : const Color.fromARGB(255, 252, 181, 224),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

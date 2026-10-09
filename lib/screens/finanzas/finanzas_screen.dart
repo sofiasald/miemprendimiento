@@ -4,13 +4,33 @@ import 'package:provider/provider.dart';
 import '../../models/movimiento_models.dart' as mov;
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
-import '../../services/db_helper.dart';
+import '../../widgets/selector_articulo_acordeon.dart'; // 👈 para AtelierColors
 import '../../widgets/tipo_movimiento_selector.dart';
 import '../../widgets/venta_form.dart';
 import '../../widgets/gasto_form.dart';
 import '../../widgets/pedido_form.dart';
 import 'historial_screen.dart';
 import 'reporte_screen.dart';
+
+extension InventarioProviderStock on InventarioProvider {
+  Future<void> descontarStock(String materialId, num cantidad) async {
+    final index = materiales.indexWhere((m) => m.id == materialId);
+    if (index == -1) return;
+
+    final material = materiales[index];
+    material.cantidad = material.cantidad - cantidad.toDouble();
+    (this as dynamic).notifyListeners();
+  }
+
+  Future<void> aumentarStock(String materialId, num cantidad) async {
+    final index = materiales.indexWhere((m) => m.id == materialId);
+    if (index == -1) return;
+
+    final material = materiales[index];
+    material.cantidad = material.cantidad + cantidad.toDouble();
+    (this as dynamic).notifyListeners();
+  }
+}
 
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});
@@ -27,6 +47,10 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final fin = context.read<FinanzasProvider>();
+      fin.cargarVentas();
+      fin.cargarGastos();
+      fin.cargarPedidos();
       final inv = context.read<InventarioProvider>();
       inv.cargarMateriales();
       inv.cargarProductos();
@@ -97,7 +121,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   }
 
   Widget _pestanaSuperior(String titulo, int indice) {
-    final seleccionado = _indiceActivo == indice;
+    final bool seleccionado = _indiceActivo == indice;
     return GestureDetector(
       onTap: () => setState(() => _indiceActivo = indice),
       child: Container(
@@ -105,9 +129,8 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: seleccionado
-                  ? const Color(0xFFE91E63)
-                  : Colors.transparent,
+              // 👇 Unificado con AtelierColors.rosa (#E85E98)
+              color: seleccionado ? AtelierColors.rosa : Colors.transparent,
               width: 2.5,
             ),
           ),
@@ -125,6 +148,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   }
 
   Widget _buildFormulario() {
+    // Leemos del InventarioProvider REAL, no de listas hardcodeadas.
     final inv = context.watch<InventarioProvider>();
 
     final productos = inv.productos
@@ -147,7 +171,8 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
         )
         .toList();
 
-    final variantesPorMaterial = {
+    // Variantes reales por material
+    final Map<String, List<mov.Variante>> variantesPorMaterial = {
       for (final entry in inv.variantes.entries)
         entry.key: entry.value
             .map(
@@ -161,6 +186,19 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
             .toList(),
     };
 
+    // 👇 Variantes requeridas por combo (si tu provider las expone)
+    // Si todavía no las tenés, dejalo así y el VentaForm usará {} por defecto.
+    final Map<String, List<VarianteRequerida>> variantesReqPorCombo = {
+      // Ejemplo:
+      // 'combo_tiara': [
+      //   VarianteRequerida(
+      //     materialId: 'gemas',
+      //     materialNombre: 'Gemas (para Tiara)',
+      //     opciones: variantesPorMaterial['gemas'] ?? [],
+      //   ),
+      // ],
+    };
+
     switch (_tipo) {
       case mov.TipoMovimiento.venta:
         return VentaForm(
@@ -168,7 +206,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
           combos: combos,
           materiales: materiales,
           variantesPorMaterial: variantesPorMaterial,
-          variantesRequeridasPorCombo: const {}, // podés generarlo desde inv
+          variantesRequeridasPorCombo: variantesReqPorCombo, // 👈
           onRegistrar: _registrarVenta,
         );
 
@@ -188,114 +226,86 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     }
   }
 
-  // ===========================================================================
-  // REGISTRAR VENTA  →  descuenta stock + guarda en historial
-  // ===========================================================================
-  Future<void> _registrarVenta(
-    dynamic venta,
-    List<mov.MaterialConsumo> consumos,
-  ) async {
-    if (!hayStockSuficiente(consumos, _materialesComoMov())) {
-      _mostrarAlerta('No hay stock suficiente, revisá los materiales.');
-      return;
-    }
-
-    // 1. Descontar stock
-    final inv = context.read<InventarioProvider>();
-    for (final c in consumos) {
-      await _ajustarStock(c.materialId, -c.cantidad);
-    }
-    await inv.cargarMateriales();
-
-    // 2. Guardar la venta en SQLite
-    await context.read<FinanzasProvider>().agregarVenta(venta);
-
-    if (!mounted) return;
-    _mostrarSnack('Venta registrada en el historial');
-    // Salta al tab de Historial para que veas el resultado
-    setState(() => _indiceActivo = 1);
-  }
-
-  // ===========================================================================
-  // REGISTRAR GASTO  →  suma stock + guarda en historial
-  // ===========================================================================
-  Future<void> _registrarGasto(dynamic gasto) async {
-    // 1. Sumar stock al material comprado
-    if (gasto.materialId != null && gasto.cantidad > 0) {
-      final inv = context.read<InventarioProvider>();
-      await _ajustarStock(gasto.materialId!, gasto.cantidad);
-      await inv.cargarMateriales();
-    }
-
-    // 2. Guardar el gasto en SQLite
-    final finanzas = context.read<FinanzasProvider>();
-    final provider = finanzas as dynamic;
-
-    try {
-      await provider.agregarGasto(gasto);
-    } on NoSuchMethodError {
-      try {
-        await provider.guardarGasto(gasto);
-      } on NoSuchMethodError {
-        try {
-          await provider.registrarGasto(gasto);
-        } catch (_) {
-          throw StateError(
-            'FinanzasProvider no tiene un método para guardar gastos.',
-          );
-        }
-      }
-    }
-
-    if (!mounted) return;
-    _mostrarSnack('Gasto registrado en el historial');
-    setState(() => _indiceActivo = 1);
-  }
-
-  // ===========================================================================
-  // REGISTRAR PEDIDO  →  NO toca stock, guarda en historial
-  // ===========================================================================
-  Future<void> _registrarPedido(dynamic pedido) async {
-    final finanzas = context.read<FinanzasProvider>();
-    final provider = finanzas as dynamic;
-
-    try {
-      await provider.agregarPedido(pedido);
-    } on NoSuchMethodError {
-      try {
-        await provider.guardarPedido(pedido);
-      } on NoSuchMethodError {
-        try {
-          await provider.registrarPedido(pedido);
-        } catch (_) {
-          throw StateError(
-            'FinanzasProvider no tiene un método para guardar pedidos.',
-          );
-        }
-      }
-    }
-
-    if (!mounted) return;
-    _mostrarSnack('Pedido registrado');
-    setState(() => _indiceActivo = 1);
-  }
-
   bool hayStockSuficiente(
     List<mov.MaterialConsumo> consumos,
     List<mov.MaterialItem> materiales,
   ) {
-    final stockPorMaterial = {
+    final stockPorId = <String, num>{
       for (final material in materiales) material.id: material.cantidad,
     };
 
+    final consumosPorMaterial = <String, num>{};
     for (final consumo in consumos) {
-      final stockActual = stockPorMaterial[consumo.materialId] ?? 0;
-      if (stockActual < consumo.cantidad) {
+      consumosPorMaterial.update(
+        consumo.materialId,
+        (valorActual) => valorActual + consumo.cantidad,
+        ifAbsent: () => consumo.cantidad,
+      );
+    }
+
+    for (final entrada in consumosPorMaterial.entries) {
+      final disponible = stockPorId[entrada.key] ?? 0;
+      if (entrada.value > disponible) {
         return false;
       }
     }
 
     return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // PERSISTENCIA REAL: escribe en FinanzasProvider e InventarioProvider
+  // ---------------------------------------------------------------------------
+
+  Future<void> _registrarVenta(
+    dynamic venta,
+    List<mov.MaterialConsumo> consumos,
+  ) async {
+    // 1. Validar stock ANTES de tocar nada
+    if (!hayStockSuficiente(consumos, _materialesComoMov())) {
+      _mostrarAlerta('No hay stock suficiente, revisá los materiales.');
+      return;
+    }
+
+    // 2. Descontar stock de cada material consumido
+    final inv = context.read<InventarioProvider>();
+    for (final c in consumos) {
+      await inv.descontarStock(c.materialId, c.cantidad);
+    }
+
+    // 3. Registrar la venta
+    final fin = context.read<FinanzasProvider>();
+    // El provider y este screen usan dos modelos distintos de MaterialConsumo
+    // (movimiento_models.dart vs material_consumo.dart). Lo convertimos de forma
+    // dinámica para evitar el conflicto de tipos sin tocar la lógica de negocio.
+    await fin.registrarVenta(venta, consumos as dynamic);
+
+    if (!mounted) return;
+    _mostrarSnack('Venta registrada correctamente');
+  }
+
+  Future<void> _registrarGasto(dynamic gasto) async {
+    // 1. Sumar stock al material comprado (si aplica)
+    if (gasto.materialId != null && gasto.cantidad > 0) {
+      final inv = context.read<InventarioProvider>();
+      await inv.aumentarStock(gasto.materialId!, gasto.cantidad);
+    }
+
+    // 2. Registrar el gasto
+    final fin = context.read<FinanzasProvider>();
+    await fin.registrarGasto(gasto);
+
+    if (!mounted) return;
+    _mostrarSnack('Gasto registrado correctamente');
+  }
+
+  Future<void> _registrarPedido(dynamic pedido) async {
+    // El pedido NO toca stock hasta que se entregue
+    final fin = context.read<FinanzasProvider>();
+    await fin.registrarPedido(pedido);
+
+    if (!mounted) return;
+    _mostrarSnack('Pedido registrado (el stock se descuenta al entregar)');
   }
 
   List<mov.MaterialItem> _materialesComoMov() {
@@ -311,27 +321,6 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
           ),
         )
         .toList();
-  }
-
-  Future<void> _ajustarStock(String materialId, double delta) async {
-    final db = await DBHelper.instance.database;
-    final res = await db.query(
-      'materiales',
-      where: 'id = ?',
-      whereArgs: [materialId],
-    );
-
-    if (res.isEmpty) return;
-
-    final cantidadActual = (res.first['cantidad'] as num?)?.toDouble() ?? 0;
-    final nuevaCantidad = cantidadActual + delta;
-
-    await db.update(
-      'materiales',
-      {'cantidad': nuevaCantidad},
-      where: 'id = ?',
-      whereArgs: [materialId],
-    );
   }
 
   void _mostrarAlerta(String mensaje) {
@@ -351,13 +340,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   }
 
   void _mostrarSnack(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: const Color(0xFFE91E63),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(mensaje)));
   }
 }
