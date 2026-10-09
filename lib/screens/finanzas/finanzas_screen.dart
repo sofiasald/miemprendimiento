@@ -21,6 +21,7 @@ class FinanzasScreen extends StatefulWidget {
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
   int _indiceActivo = 1;
+  int _versionHistorial = 0;
   mov.TipoMovimiento _tipo = mov.TipoMovimiento.venta;
 
   @override
@@ -89,7 +90,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
               ],
             ),
           ),
-          const HistorialScreen(),
+          HistorialScreen(key: ValueKey(_versionHistorial)),
           const ReporteScreen(),
         ],
       ),
@@ -221,7 +222,10 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
         await guardarVenta();
         if (!mounted) return;
         _mostrarSnack('Venta registrada en el historial');
-        setState(() => _indiceActivo = 1);
+        setState(() {
+          _indiceActivo = 1;
+          _versionHistorial++;
+        });
       } catch (_) {
         _mostrarAlerta('No se pudo registrar la venta.');
       }
@@ -242,11 +246,13 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     }
 
     final inv = context.read<InventarioProvider>();
+    final stockDescontado = <String, double>{};
 
     try {
       // 1. Descontar stock de materiales
       for (final entry in totalConsumidoPorMaterial.entries) {
         await _ajustarStock(entry.key, -entry.value);
+        stockDescontado[entry.key] = entry.value;
       }
       await inv.cargarMateriales();
 
@@ -255,10 +261,13 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
       if (!mounted) return;
       _mostrarSnack('Venta registrada en el historial');
-      setState(() => _indiceActivo = 1);
+      setState(() {
+        _indiceActivo = 1;
+        _versionHistorial++;
+      });
     } catch (_) {
       // Si falla la venta, reponemos el stock para no dejar materiales descontados
-      for (final entry in totalConsumidoPorMaterial.entries) {
+      for (final entry in stockDescontado.entries) {
         await _ajustarStock(entry.key, entry.value);
       }
       await inv.cargarMateriales();
@@ -278,14 +287,17 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
     try {
       // 1. Sumar stock al material comprado
-      materialId = gasto.materialId as String?;
-      cantidad = (gasto.cantidad as num?)?.toDouble() ?? 0;
+      materialId = gasto.materialId?.toString();
+      final cantidadRecibida = gasto.cantidad;
+      cantidad = cantidadRecibida is num
+          ? cantidadRecibida.toDouble()
+          : double.tryParse(cantidadRecibida?.toString() ?? '') ?? 0;
 
       if (materialId != null && cantidad > 0) {
         final inv = context.read<InventarioProvider>();
+        debeRevertirStock = true;
         await _ajustarStock(materialId, cantidad);
         await inv.cargarMateriales();
-        debeRevertirStock = true;
       }
 
       // 2. Guardar el gasto en SQLite y dejarlo visible en Historial
@@ -310,7 +322,10 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
       if (!mounted) return;
       _mostrarSnack('Gasto registrado en el historial');
-      setState(() => _indiceActivo = 1);
+      setState(() {
+        _indiceActivo = 1;
+        _versionHistorial++;
+      });
     } catch (_) {
       if (debeRevertirStock && materialId != null && cantidad > 0) {
         await _ajustarStock(materialId, -cantidad);
@@ -350,7 +365,10 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
       if (!mounted) return;
       _mostrarSnack('Pedido registrado en el historial');
-      setState(() => _indiceActivo = 1);
+      setState(() {
+        _indiceActivo = 1;
+        _versionHistorial++;
+      });
     } catch (_) {
       if (!mounted) return;
       _mostrarAlerta('No se pudo registrar el pedido en el historial.');
@@ -398,17 +416,24 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       whereArgs: [materialId],
     );
 
-    if (res.isEmpty) return;
+    if (res.isEmpty) {
+      throw StateError('No se encontró el material $materialId.');
+    }
 
     final cantidadActual = (res.first['cantidad'] as num?)?.toDouble() ?? 0;
     final nuevaCantidad = cantidadActual + delta;
 
-    await db.update(
+    final filasActualizadas = await db.update(
       'materiales',
       {'cantidad': nuevaCantidad},
       where: 'id = ?',
       whereArgs: [materialId],
     );
+    if (filasActualizadas != 1) {
+      throw StateError(
+        'No se pudo actualizar el stock del material $materialId.',
+      );
+    }
   }
 
   void _mostrarAlerta(String mensaje) {
