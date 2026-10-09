@@ -1,6 +1,7 @@
 //Este archivo unifica todas las transacciones de la base de datos local en una sola cronología, filtrable en tiempo real y conectada al flujo de pedidos
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/finanzas_provider.dart';
 import '../../models/pedido.dart';
 import '../../models/venta.dart';
@@ -54,8 +55,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
   /// Convierte una fecha a formato legible de encabezado (Ej: "12 DE SEPTIEMBRE 2026").
   static String formatearFechaEncabezado(DateTime fecha) {
     const meses = [
-      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-      'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+      'ENERO',
+      'FEBRERO',
+      'MARZO',
+      'ABRIL',
+      'MAYO',
+      'JUNIO',
+      'JULIO',
+      'AGOSTO',
+      'SEPTIEMBRE',
+      'OCTUBRE',
+      'NOVIEMBRE',
+      'DICIEMBRE',
     ];
     return '${fecha.day} DE ${meses[fecha.month - 1]} ${fecha.year}';
   }
@@ -87,11 +98,19 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
                 child: TextField(
                   controller: _controladorBusqueda,
-                  onChanged: (val) => setState(() => _terminoBusqueda = val.trim().toLowerCase()),
+                  onChanged: (val) => setState(
+                    () => _terminoBusqueda = val.trim().toLowerCase(),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Buscar...',
-                    hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF757575)),
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF9E9E9E),
+                      fontSize: 14,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: Color(0xFF757575),
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF3F3F3),
                     contentPadding: EdgeInsets.zero,
@@ -106,7 +125,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
               // BLOQUE 2: Chips horizontales de filtrado por categoría
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     _chipFiltro('Todo'),
@@ -130,7 +152,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         ),
                       )
                     : ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         children: listaFinal,
                       ),
               ),
@@ -149,7 +174,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
         decoration: BoxDecoration(
-          color: seleccionado ? const Color(0xFFF06292) : const Color(0xFFEEEEEE),
+          color: seleccionado
+              ? const Color(0xFFF06292)
+              : const Color(0xFFEEEEEE),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -191,7 +218,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
     if (_filtroActivo == 'Todo' || _filtroActivo == 'Ventas') {
       for (final venta in finanzas.ventas) {
         final nombreVenta = venta.nombreItem ?? 'Venta Directa';
-        if (_terminoBusqueda.isEmpty || nombreVenta.toLowerCase().contains(_terminoBusqueda)) {
+        if (_terminoBusqueda.isEmpty ||
+            nombreVenta.toLowerCase().contains(_terminoBusqueda)) {
           items.add(
             _ItemHistorial(
               fechaReferencia: _parsearFecha(venta.fecha),
@@ -209,7 +237,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
     if (_filtroActivo == 'Todo' || _filtroActivo == 'Gastos') {
       for (final gasto in finanzas.gastos) {
         final nombreGasto = gasto.materialNombre ?? 'Gasto de Insumo';
-        if (_terminoBusqueda.isEmpty || nombreGasto.toLowerCase().contains(_terminoBusqueda)) {
+        if (_terminoBusqueda.isEmpty ||
+            nombreGasto.toLowerCase().contains(_terminoBusqueda)) {
           items.add(
             _ItemHistorial(
               fechaReferencia: _parsearFecha(gasto.fecha),
@@ -268,7 +297,9 @@ class _TarjetaPedido extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => DetallePedidoScreen(pedido: pedido)),
+          MaterialPageRoute(
+            builder: (_) => DetallePedidoScreen(pedido: pedido),
+          ),
         );
       },
       child: Container(
@@ -278,7 +309,11 @@ class _TarjetaPedido extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFE8E8E8)),
           boxShadow: const [
-            BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Column(
@@ -289,17 +324,27 @@ class _TarjetaPedido extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.assignment_outlined, size: 18, color: Colors.black87),
+                    const Icon(
+                      Icons.assignment_outlined,
+                      size: 18,
+                      color: Colors.black87,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'PEDIDO   •   ${pedido.cliente}',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
                 Text(
                   '\$${_HistorialScreenState.formatearMonto(pedido.monto)}',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
                 ),
               ],
             ),
@@ -309,7 +354,10 @@ class _TarjetaPedido extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(pedido.nombreItem, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                  Text(
+                    pedido.nombreItem,
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
                   const SizedBox(height: 1),
                   Text(
                     'Fecha pactada: ${pedido.fechaEntrega.day.toString().padLeft(2, '0')}/${pedido.fechaEntrega.month.toString().padLeft(2, '0')}/${pedido.fechaEntrega.year}',
@@ -323,7 +371,10 @@ class _TarjetaPedido extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF48FB1),
                     borderRadius: BorderRadius.circular(16),
@@ -335,12 +386,20 @@ class _TarjetaPedido extends StatelessWidget {
                       SizedBox(width: 4),
                       Text(
                         'Marcar Entregado',
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.black87,
+                  size: 22,
+                ),
               ],
             ),
           ],
@@ -375,7 +434,11 @@ class _TarjetaVenta extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFE8E8E8)),
           boxShadow: const [
-            BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
@@ -383,14 +446,33 @@ class _TarjetaVenta extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.receipt_long_outlined, color: Colors.black87, size: 20),
+                const Icon(
+                  Icons.receipt_long_outlined,
+                  color: Colors.black87,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('VENTA', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    Text(venta.nombreItem ?? 'Venta Directa', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                    const Text('Venta Directa', style: TextStyle(color: Colors.black45, fontSize: 11)),
+                    const Text(
+                      'VENTA',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      venta.nombreItem ?? 'Venta Directa',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const Text(
+                      'Venta Directa',
+                      style: TextStyle(color: Colors.black45, fontSize: 11),
+                    ),
                   ],
                 ),
               ],
@@ -399,10 +481,18 @@ class _TarjetaVenta extends StatelessWidget {
               children: [
                 Text(
                   '+\$${_HistorialScreenState.formatearMonto(venta.monto)}',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.black87,
+                  size: 22,
+                ),
               ],
             ),
           ],
@@ -437,7 +527,11 @@ class _TarjetaGasto extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFE8E8E8)),
           boxShadow: const [
-            BoxShadow(color: Color(0x06000000), blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
@@ -445,14 +539,33 @@ class _TarjetaGasto extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.bookmark_border, color: Colors.black87, size: 20),
+                const Icon(
+                  Icons.bookmark_border,
+                  color: Colors.black87,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('GASTO', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    Text(gasto.materialNombre ?? 'Compra Insumo', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                    const Text('Compra Insumo', style: TextStyle(color: Colors.black45, fontSize: 11)),
+                    const Text(
+                      'GASTO',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      gasto.materialNombre ?? 'Compra Insumo',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const Text(
+                      'Compra Insumo',
+                      style: TextStyle(color: Colors.black45, fontSize: 11),
+                    ),
                   ],
                 ),
               ],
@@ -461,10 +574,18 @@ class _TarjetaGasto extends StatelessWidget {
               children: [
                 Text(
                   '-\$${_HistorialScreenState.formatearMonto(gasto.monto)}',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.black87),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.black87,
+                  size: 22,
+                ),
               ],
             ),
           ],
