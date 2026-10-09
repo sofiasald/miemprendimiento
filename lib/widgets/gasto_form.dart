@@ -252,7 +252,7 @@ class _GastoFormState extends State<GastoForm> {
                     // 👇 Color dinámico
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
-                        : AtelierColors.rosaClaro,
+                        : AtelierColors.rosaSuave,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

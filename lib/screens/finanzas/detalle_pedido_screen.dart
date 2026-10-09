@@ -26,32 +26,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     _pedidoActual = widget.pedido;
   }
 
-  Future<void> _guardarPedidoPersistente(Pedido pedido) async {
-    final provider = context.read<FinanzasProvider>();
-    final dynamicProvider = provider as dynamic;
-
-    try {
-      await dynamicProvider.guardarPedido(pedido);
-      return;
-    } on NoSuchMethodError {
-      // El provider puede usar otro nombre de método para persistir pedidos.
-    }
-
-    try {
-      await dynamicProvider.actualizarPedido(pedido);
-      return;
-    } on NoSuchMethodError {
-      // Intento alternativo.
-    }
-
-    try {
-      await dynamicProvider.editarPedido(pedido);
-      return;
-    } on NoSuchMethodError {
-      // Intenta un último alias común.
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // ACCIÓN 1: Marcar como Entregado (Genera Venta y preserva el Pedido histórico)
   // ---------------------------------------------------------------------------
@@ -111,7 +85,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
       _pedidoActual.estado = 'entregado';
       _pedidoActual.fechaEntregaReal = DateTime.now();
     });
-    await _guardarPedidoPersistente(_pedidoActual);
+    await provider.actualizarPedido(_pedidoActual);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -128,6 +102,8 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
   // ACCIÓN 2: Cancelar Pedido (Pasa a CANCELADO, no genera venta ni toca stock)
   // ---------------------------------------------------------------------------
   Future<void> _cancelarPedido() async {
+    final provider = context.read<FinanzasProvider>();
+
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -161,7 +137,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     setState(() {
       _pedidoActual.estado = 'cancelado';
     });
-    await _guardarPedidoPersistente(_pedidoActual);
+    await provider.actualizarPedido(_pedidoActual);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -278,7 +254,9 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                         double.tryParse(montoCtrl.text) ?? _pedidoActual.monto;
                     _pedidoActual.observaciones = obsCtrl.text.trim();
                   });
-                  await _guardarPedidoPersistente(_pedidoActual);
+                  await context.read<FinanzasProvider>().actualizarPedido(
+                    _pedidoActual,
+                  );
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: const Text(

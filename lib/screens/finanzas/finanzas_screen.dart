@@ -195,89 +195,145 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     dynamic venta,
     List<mov.MaterialConsumo> consumos,
   ) async {
-    if (!hayStockSuficiente(consumos, _materialesComoMov())) {
+    if (consumos.isEmpty) {
+      try {
+        await context.read<FinanzasProvider>().agregarVenta(venta);
+        if (!mounted) return;
+        _mostrarSnack('Venta registrada en el historial');
+        setState(() => _indiceActivo = 1);
+      } catch (_) {
+        _mostrarAlerta('No se pudo registrar la venta.');
+      }
+      return;
+    }
+
+    final materialesActuales = _materialesComoMov();
+    if (!hayStockSuficiente(consumos, materialesActuales)) {
       _mostrarAlerta('No hay stock suficiente, revisá los materiales.');
       return;
     }
 
-    // 1. Descontar stock
-    final inv = context.read<InventarioProvider>();
-    for (final c in consumos) {
-      await _ajustarStock(c.materialId, -c.cantidad);
+    final totalConsumidoPorMaterial = <String, double>{};
+    for (final consumo in consumos) {
+      totalConsumidoPorMaterial[consumo.materialId] =
+          (totalConsumidoPorMaterial[consumo.materialId] ?? 0) +
+          consumo.cantidad;
     }
-    await inv.cargarMateriales();
 
-    // 2. Guardar la venta en SQLite
-    await context.read<FinanzasProvider>().agregarVenta(venta);
+    final inv = context.read<InventarioProvider>();
 
-    if (!mounted) return;
-    _mostrarSnack('Venta registrada en el historial');
-    // Salta al tab de Historial para que veas el resultado
-    setState(() => _indiceActivo = 1);
+    try {
+      // 1. Descontar stock de materiales
+      for (final entry in totalConsumidoPorMaterial.entries) {
+        await _ajustarStock(entry.key, -entry.value);
+      }
+      await inv.cargarMateriales();
+
+      // 2. Guardar la venta en SQLite
+      await context.read<FinanzasProvider>().agregarVenta(venta);
+
+      if (!mounted) return;
+      _mostrarSnack('Venta registrada en el historial');
+      setState(() => _indiceActivo = 1);
+    } catch (_) {
+      // Si falla la venta, reponemos el stock para no dejar materiales descontados
+      for (final entry in totalConsumidoPorMaterial.entries) {
+        await _ajustarStock(entry.key, entry.value);
+      }
+      await inv.cargarMateriales();
+
+      if (!mounted) return;
+      _mostrarAlerta('No se pudo registrar la venta. Se revirtió el stock.');
+    }
   }
 
   // ===========================================================================
   // REGISTRAR GASTO  →  suma stock + guarda en historial
   // ===========================================================================
   Future<void> _registrarGasto(dynamic gasto) async {
-    // 1. Sumar stock al material comprado
-    if (gasto.materialId != null && gasto.cantidad > 0) {
-      final inv = context.read<InventarioProvider>();
-      await _ajustarStock(gasto.materialId!, gasto.cantidad);
-      await inv.cargarMateriales();
-    }
-
-    // 2. Guardar el gasto en SQLite
-    final finanzas = context.read<FinanzasProvider>();
-    final provider = finanzas as dynamic;
+    String? materialId;
+    double cantidad = 0;
+    var debeRevertirStock = false;
 
     try {
-      await provider.agregarGasto(gasto);
-    } on NoSuchMethodError {
+      // 1. Sumar stock al material comprado
+      materialId = gasto.materialId as String?;
+      cantidad = (gasto.cantidad as num?)?.toDouble() ?? 0;
+
+      if (materialId != null && cantidad > 0) {
+        final inv = context.read<InventarioProvider>();
+        await _ajustarStock(materialId, cantidad);
+        await inv.cargarMateriales();
+        debeRevertirStock = true;
+      }
+
+      // 2. Guardar el gasto en SQLite y dejarlo visible en Historial
+      final finanzas = context.read<FinanzasProvider>();
+      final provider = finanzas as dynamic;
+
       try {
-        await provider.guardarGasto(gasto);
+        await provider.agregarGasto(gasto);
       } on NoSuchMethodError {
         try {
-          await provider.registrarGasto(gasto);
-        } catch (_) {
-          throw StateError(
-            'FinanzasProvider no tiene un método para guardar gastos.',
-          );
+          await provider.guardarGasto(gasto);
+        } on NoSuchMethodError {
+          try {
+            await provider.registrarGasto(gasto);
+          } catch (_) {
+            throw StateError(
+              'FinanzasProvider no tiene un método para guardar gastos.',
+            );
+          }
         }
       }
-    }
 
-    if (!mounted) return;
-    _mostrarSnack('Gasto registrado en el historial');
-    setState(() => _indiceActivo = 1);
+      if (!mounted) return;
+      _mostrarSnack('Gasto registrado en el historial');
+      setState(() => _indiceActivo = 1);
+    } catch (_) {
+      if (debeRevertirStock && materialId != null && cantidad > 0) {
+        await _ajustarStock(materialId, -cantidad);
+        final inv = context.read<InventarioProvider>();
+        await inv.cargarMateriales();
+      }
+
+      if (!mounted) return;
+      _mostrarAlerta('No se pudo registrar el gasto en el historial.');
+    }
   }
 
   // ===========================================================================
   // REGISTRAR PEDIDO  →  NO toca stock, guarda en historial
   // ===========================================================================
+
   Future<void> _registrarPedido(dynamic pedido) async {
     final finanzas = context.read<FinanzasProvider>();
     final provider = finanzas as dynamic;
 
     try {
-      await provider.agregarPedido(pedido);
-    } on NoSuchMethodError {
       try {
-        await provider.guardarPedido(pedido);
+        await provider.agregarPedido(pedido);
       } on NoSuchMethodError {
         try {
-          await provider.registrarPedido(pedido);
-        } catch (_) {
-          throw StateError(
-            'FinanzasProvider no tiene un método para guardar pedidos.',
-          );
+          await provider.guardarPedido(pedido);
+        } on NoSuchMethodError {
+          try {
+            await provider.registrarPedido(pedido);
+          } catch (_) {
+            throw StateError(
+              'FinanzasProvider no tiene un método para guardar pedidos.',
+            );
+          }
         }
       }
-    }
 
-    if (!mounted) return;
-    _mostrarSnack('Pedido registrado');
-    setState(() => _indiceActivo = 1);
+      if (!mounted) return;
+      _mostrarSnack('Pedido registrado en el historial');
+      setState(() => _indiceActivo = 1);
+    } catch (_) {
+      if (!mounted) return;
+      _mostrarAlerta('No se pudo registrar el pedido en el historial.');
+    }
   }
 
   bool hayStockSuficiente(

@@ -256,7 +256,7 @@ class _PedidoFormState extends State<PedidoForm> {
                     // 👇 Color dinámico
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
-                        : AtelierColors.rosaClaro,
+                        : AtelierColors.rosaSuave,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
