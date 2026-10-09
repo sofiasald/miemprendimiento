@@ -26,11 +26,20 @@ class _PedidoFormState extends State<PedidoForm> {
   final _observacionesCtrl = TextEditingController();
   final _cantidadCtrl = TextEditingController(text: '1');
 
-  // Artículo seleccionado (puede ser producto o combo, pero uno solo)
   String? _tipoSeleccionado;
   String? _idSeleccionado;
   String _nombreItem = '';
   DateTime _fechaEntrega = DateTime.now().add(const Duration(days: 7));
+
+  // 👇 Validación del formulario completo
+  bool get _formularioCompleto {
+    final monto = double.tryParse(_montoCtrl.text) ?? 0;
+    final cantidad = int.tryParse(_cantidadCtrl.text) ?? 0;
+    return _idSeleccionado != null &&
+        _clienteCtrl.text.trim().isNotEmpty &&
+        cantidad > 0 &&
+        monto > 0;
+  }
 
   @override
   void dispose() {
@@ -55,7 +64,6 @@ class _PedidoFormState extends State<PedidoForm> {
           ),
           const SizedBox(height: 8),
 
-          // Campo que abre el bottom sheet
           InkWell(
             onTap: _abrirSelectorArticulo,
             child: Container(
@@ -117,6 +125,7 @@ class _PedidoFormState extends State<PedidoForm> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: _inputDecoration('1'),
+                      onChanged: (_) => setState(() {}), // 👈
                     ),
                   ],
                 ),
@@ -138,6 +147,7 @@ class _PedidoFormState extends State<PedidoForm> {
                     TextField(
                       controller: _clienteCtrl,
                       decoration: _inputDecoration('Ingresar Nombre . . .'),
+                      onChanged: (_) => setState(() {}), // 👈
                     ),
                   ],
                 ),
@@ -196,6 +206,7 @@ class _PedidoFormState extends State<PedidoForm> {
             controller: _montoCtrl,
             keyboardType: TextInputType.number,
             decoration: _inputDecoration('\$ 0'),
+            onChanged: (_) => setState(() {}), // 👈
           ),
 
           const SizedBox(height: 20),
@@ -242,13 +253,16 @@ class _PedidoFormState extends State<PedidoForm> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
-                    backgroundColor: AtelierColors.rosaClaro,
+                    // 👇 Color dinámico
+                    backgroundColor: _formularioCompleto
+                        ? AtelierColors.rosa
+                        : AtelierColors.rosaClaro,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: _guardar,
+                  onPressed: _formularioCompleto ? _guardar : null,
                   child: const Text(
                     'Registrar',
                     style: TextStyle(
@@ -299,7 +313,6 @@ class _PedidoFormState extends State<PedidoForm> {
     if (picked != null) setState(() => _fechaEntrega = picked);
   }
 
-  /// Bottom sheet con el acordeón doble del Figma.
   void _abrirSelectorArticulo() {
     showModalBottomSheet(
       context: context,
@@ -355,7 +368,7 @@ class _PedidoFormState extends State<PedidoForm> {
 }
 
 // ---------------------------------------------------------------------------
-// BOTTOM SHEET CON EL ACORDEÓN PLEGABLE DEL FIGMA
+// BOTTOM SHEET CON EL ACORDEÓN PLEGABLE
 // ---------------------------------------------------------------------------
 
 class _SelectorArticuloSheet extends StatefulWidget {
@@ -391,7 +404,6 @@ class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ---- Tirador ----
           Container(
             margin: const EdgeInsets.only(top: 12),
             width: 35,
@@ -402,7 +414,6 @@ class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
             ),
           ),
 
-          // ---- Título con X rosado ----
           Container(
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -440,7 +451,6 @@ class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
 
           const SizedBox(height: 20),
 
-          // ---- Acordeón 1: PRODUCTOS INDIVIDUALES ----
           _acordeon(
             titulo: 'PRODUCTOS INDIVIDUALES',
             abierto: _productosAbierto,
@@ -468,7 +478,6 @@ class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
 
           const SizedBox(height: 20),
 
-          // ---- Acordeón 2: COMBOS Y PAQUETES ----
           _acordeon(
             titulo: 'COMBOS Y PAQUETES',
             abierto: _combosAbierto,

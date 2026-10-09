@@ -4,13 +4,6 @@ import '../models/movimiento_models.dart';
 import '../models/venta.dart';
 import 'selector_articulo_acordeon.dart';
 
-/// Formulario de Venta.
-/// - Círculo + palabra "Productos" / "Combos" arriba del campo.
-/// - Un único campo desplegable cuyo contenido cambia según el círculo activo.
-/// - Si el artículo es COMBO, se muestran sus variantes de materiales
-///   ("Gemas para Tiara", "Color de Tul para Tutú", etc.).
-/// - Fecha actual + Monto total.
-/// - Botones Cancelar / Registrar.
 class VentaForm extends StatefulWidget {
   final List<Producto> productos;
   final List<Combo> combos;
@@ -18,8 +11,6 @@ class VentaForm extends StatefulWidget {
   final Map<String, List<Variante>> variantesPorMaterial;
   final void Function(Venta venta, List<MaterialConsumo> consumos) onRegistrar;
 
-  /// Variantes requeridas por combo. En producción debería venir del
-  /// InventarioProvider (itemsPorCombo). Acá lo dejamos inyectable.
   final Map<String, List<VarianteRequerida>> variantesRequeridasPorCombo;
 
   const VentaForm({
@@ -36,12 +27,10 @@ class VentaForm extends StatefulWidget {
   State<VentaForm> createState() => _VentaFormState();
 }
 
-/// Variante requerida por un combo: qué material y qué opciones de variante
-/// se pueden elegir al venderlo.
 class VarianteRequerida {
   final String materialId;
-  final String materialNombre; // "Gemas (para Tiara)"
-  final List<Variante> opciones; // ["Roja", "Rosa Pastel"]
+  final String materialNombre;
+  final List<Variante> opciones;
 
   VarianteRequerida({
     required this.materialId,
@@ -59,12 +48,26 @@ class _VentaFormState extends State<VentaForm> {
 
   bool _listaAbierta = false;
 
-  // Variantes elegidas para el combo seleccionado: materialId -> varianteId
   final Map<String, String?> _variantesElegidas = {};
 
-  // Fecha y monto editables
   late DateTime _fecha;
   final _montoCtrl = TextEditingController();
+
+  // 👇 Validación del formulario completo
+  bool get _formularioCompleto {
+    if (_idSeleccionado == null) return false;
+
+    final monto = double.tryParse(_montoCtrl.text) ?? 0;
+    if (monto <= 0) return false;
+
+    if (_tipoActivo == 'combo') {
+      final reqs = widget.variantesRequeridasPorCombo[_idSeleccionado] ?? [];
+      for (final req in reqs) {
+        if (_variantesElegidas[req.materialId] == null) return false;
+      }
+    }
+    return true;
+  }
 
   @override
   void initState() {
@@ -92,7 +95,6 @@ class _VentaFormState extends State<VentaForm> {
               )
               .toList();
 
-    // Variantes requeridas (solo si es combo)
     final variantesReq = _tipoActivo == 'combo' && _idSeleccionado != null
         ? widget.variantesRequeridasPorCombo[_idSeleccionado] ?? []
         : <VarianteRequerida>[];
@@ -102,7 +104,6 @@ class _VentaFormState extends State<VentaForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ---------- TÍTULO ----------
           Text(
             _tipoActivo == 'producto'
                 ? 'Producto Vendido *'
@@ -114,7 +115,6 @@ class _VentaFormState extends State<VentaForm> {
           ),
           const SizedBox(height: 10),
 
-          // ---------- CÍRCULO + PALABRA ----------
           Row(
             children: [
               _puntoYTexto(
@@ -148,16 +148,13 @@ class _VentaFormState extends State<VentaForm> {
           ),
           const SizedBox(height: 8),
 
-          // ---------- CAMPO ÚNICO DESPLEGABLE ----------
           _campoDesplegable(itemsActivos),
 
-          // ---------- DETALLES Y VARIANTES DEL COMBO ----------
           if (variantesReq.isNotEmpty) ...[
             const SizedBox(height: 20),
             _seccionDetallesCombo(variantesReq),
           ],
 
-          // ---------- FECHA + MONTO ----------
           const SizedBox(height: 20),
           Row(
             children: [
@@ -199,7 +196,6 @@ class _VentaFormState extends State<VentaForm> {
 
           const SizedBox(height: 28),
 
-          // ---------- BOTONES ----------
           Row(
             children: [
               Expanded(
@@ -226,7 +222,8 @@ class _VentaFormState extends State<VentaForm> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
-                    backgroundColor: _idSeleccionado != null
+                    // 👇 Color dinámico
+                    backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
                         : AtelierColors.rosaClaro,
                     elevation: 0,
@@ -234,7 +231,7 @@ class _VentaFormState extends State<VentaForm> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: _idSeleccionado == null ? null : _guardar,
+                  onPressed: _formularioCompleto ? _guardar : null,
                   child: const Text(
                     'Registrar',
                     style: TextStyle(
@@ -432,7 +429,6 @@ class _VentaFormState extends State<VentaForm> {
     );
   }
 
-  /// Caja gris con "DETALLES Y VARIANTES DEL COMBO" + variantes requeridas.
   Widget _seccionDetallesCombo(List<VarianteRequerida> variantes) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -599,7 +595,9 @@ class _VentaFormState extends State<VentaForm> {
               ),
               onChanged: (val) {
                 final n = double.tryParse(val);
-                if (n != null) _precio = n;
+                setState(() {
+                  _precio = n ?? 0; // 👈 setState para repintar el botón
+                });
               },
             ),
           ),
@@ -632,7 +630,6 @@ class _VentaFormState extends State<VentaForm> {
   }
 
   void _guardar() {
-    // Recolectamos consumos: si es combo, las variantes elegidas son consumos.
     final consumos = <MaterialConsumo>[];
     if (_tipoActivo == 'combo') {
       final reqs = widget.variantesRequeridasPorCombo[_idSeleccionado] ?? [];
@@ -640,10 +637,7 @@ class _VentaFormState extends State<VentaForm> {
         final varianteId = _variantesElegidas[req.materialId];
         if (varianteId != null) {
           consumos.add(
-            MaterialConsumo(
-              materialId: req.materialId,
-              cantidad: 1, // podés ajustarlo si el combo pide más cantidad
-            ),
+            MaterialConsumo(materialId: req.materialId, cantidad: 1),
           );
         }
       }

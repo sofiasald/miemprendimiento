@@ -29,6 +29,13 @@ class _GastoFormState extends State<GastoForm> {
   bool _listaMaterialesAbierta = true;
   bool _listaVariantesAbierta = true;
 
+  // 👇 Validación del formulario completo
+  bool get _formularioCompleto {
+    final monto = double.tryParse(_montoCtrl.text) ?? 0;
+    final cantidad = double.tryParse(_cantidadCtrl.text) ?? 0;
+    return _materialId != null && cantidad > 0 && monto > 0;
+  }
+
   @override
   void dispose() {
     _cantidadCtrl.dispose();
@@ -64,7 +71,6 @@ class _GastoFormState extends State<GastoForm> {
           ),
           const SizedBox(height: 8),
 
-          // Listado plegable de materiales
           _listadoMateriales(),
 
           // ---- Si el material tiene variantes, segundo listado ----
@@ -102,6 +108,7 @@ class _GastoFormState extends State<GastoForm> {
                       controller: _cantidadCtrl,
                       keyboardType: TextInputType.number,
                       decoration: _inputDecoration('0'),
+                      onChanged: (_) => setState(() {}), // 👈
                     ),
                   ],
                 ),
@@ -207,6 +214,7 @@ class _GastoFormState extends State<GastoForm> {
                       controller: _montoCtrl,
                       keyboardType: TextInputType.number,
                       decoration: _inputDecorationMonto('\$ 0'),
+                      onChanged: (_) => setState(() {}), // 👈
                     ),
                   ],
                 ),
@@ -241,13 +249,17 @@ class _GastoFormState extends State<GastoForm> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
-                    backgroundColor: AtelierColors.rosaClaro,
+                    // 👇 Color dinámico
+                    backgroundColor: _formularioCompleto
+                        ? AtelierColors.rosa
+                        : AtelierColors.rosaClaro,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: _guardar,
+                  // 👇 Habilitado solo si el form está completo
+                  onPressed: _formularioCompleto ? _guardar : null,
                   child: const Text(
                     'Registrar',
                     style: TextStyle(
@@ -361,7 +373,7 @@ class _GastoFormState extends State<GastoForm> {
     );
   }
 
-  /// Listado plegable de variantes (aparece solo si el material las tiene).
+  /// Listado plegable de variantes.
   Widget _listadoVariantes(List<Variante> variantes) {
     return Container(
       decoration: BoxDecoration(
