@@ -195,9 +195,30 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     dynamic venta,
     List<mov.MaterialConsumo> consumos,
   ) async {
+    final finanzas = context.read<FinanzasProvider>();
+    final provider = finanzas as dynamic;
+
+    Future<void> guardarVenta() async {
+      try {
+        await provider.agregarVenta(venta);
+      } on NoSuchMethodError {
+        try {
+          await provider.guardarVenta(venta);
+        } on NoSuchMethodError {
+          try {
+            await provider.registrarVenta(venta);
+          } catch (_) {
+            throw StateError(
+              'FinanzasProvider no tiene un método para guardar ventas.',
+            );
+          }
+        }
+      }
+    }
+
     if (consumos.isEmpty) {
       try {
-        await context.read<FinanzasProvider>().agregarVenta(venta);
+        await guardarVenta();
         if (!mounted) return;
         _mostrarSnack('Venta registrada en el historial');
         setState(() => _indiceActivo = 1);
@@ -230,7 +251,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       await inv.cargarMateriales();
 
       // 2. Guardar la venta en SQLite
-      await context.read<FinanzasProvider>().agregarVenta(venta);
+      await guardarVenta();
 
       if (!mounted) return;
       _mostrarSnack('Venta registrada en el historial');
