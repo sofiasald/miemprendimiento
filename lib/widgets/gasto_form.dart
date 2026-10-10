@@ -33,7 +33,14 @@ class _GastoFormState extends State<GastoForm> {
   bool get _formularioCompleto {
     final monto = double.tryParse(_montoCtrl.text) ?? 0;
     final cantidad = double.tryParse(_cantidadCtrl.text) ?? 0;
-    return _materialId != null && cantidad > 0 && monto > 0;
+    final variantes = _materialId != null
+        ? widget.variantesPorMaterial[_materialId!] ?? []
+        : <Variante>[];
+
+    return _materialId != null &&
+        cantidad > 0 &&
+        monto > 0 &&
+        (!variantes.any((v) => true) || _varianteId != null);
   }
 
   @override
@@ -506,7 +513,11 @@ class _GastoFormState extends State<GastoForm> {
 
   void _guardar() {
     final monto = double.tryParse(_montoCtrl.text) ?? 0;
-    if (_materialId == null || monto <= 0) return;
+    final cantidad = double.tryParse(_cantidadCtrl.text) ?? 0;
+    if (_materialId == null || monto <= 0 || cantidad <= 0) return;
+
+    final variantes = widget.variantesPorMaterial[_materialId!] ?? [];
+    if (variantes.isNotEmpty && _varianteId == null) return;
 
     final material = widget.materiales.firstWhere(
       (m) => m.id == _materialId,
@@ -518,11 +529,9 @@ class _GastoFormState extends State<GastoForm> {
       materialNombre: material.nombre,
       varianteId: _varianteId,
       varianteNombre: _varianteId != null
-          ? (widget.variantesPorMaterial[_materialId!] ?? [])
-                .firstWhere((v) => v.id == _varianteId)
-                .nombre
+          ? variantes.firstWhere((v) => v.id == _varianteId).nombre
           : null,
-      cantidad: double.tryParse(_cantidadCtrl.text) ?? 0,
+      cantidad: cantidad,
       monto: monto,
     );
 

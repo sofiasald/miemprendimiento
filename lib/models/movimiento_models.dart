@@ -53,9 +53,17 @@ bool hayStockSuficiente(
   List<MaterialConsumo> consumos,
   List<MaterialItem> materialesDisponibles,
 ) {
-  for (final c in consumos) {
-    final mat = materialesDisponibles.firstWhere((m) => m.id == c.materialId);
-    if (mat.cantidad < c.cantidad) return false;
+  if (consumos.isEmpty) return true;
+
+  final stockPorMaterial = {
+    for (final material in materialesDisponibles) material.id: material,
+  };
+
+  for (final consumo in consumos) {
+    final material = stockPorMaterial[consumo.materialId];
+    if (material == null) return false;
+    if (material.cantidad < consumo.cantidad) return false;
   }
+
   return true;
 }

@@ -253,10 +253,12 @@ class _PedidoFormState extends State<PedidoForm> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
-                    // 👇 Color dinámico
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
                         : AtelierColors.rosaSuave,
+                    disabledBackgroundColor: AtelierColors.rosaSuave,
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

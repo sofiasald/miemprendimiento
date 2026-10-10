@@ -20,7 +20,7 @@ class FinanzasScreen extends StatefulWidget {
 }
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
-  int _indiceActivo = 1;
+  int _indiceActivo = 0;
   int _versionHistorial = 0;
   mov.TipoMovimiento _tipo = mov.TipoMovimiento.venta;
 
