@@ -182,6 +182,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     if (confirmar != true) return;
 
+    if (!mounted) return;
     await context.read<FinanzasProvider>().eliminarPedido(_pedidoActual.id);
     if (!mounted) return;
     Navigator.pop(context);
