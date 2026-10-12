@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/movimiento_models.dart';
+import '../finanzas/finanzas_screen.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -49,18 +52,14 @@ class HomeScreen extends StatelessWidget {
                     texto: 'Nueva Venta',
                     colorFondo: const Color(0xFFE23D80),
                     colorTexto: Colors.white,
-                    onTap: () {
-                      // TODO: navegar al formulario de venta (módulo Finanzas)
-                    },
+                    onTap: () => _irARegistrar(context, TipoMovimiento.venta),
                   ),
                   const SizedBox(height: 14),
                   _BotonAccion(
                     texto: 'Nuevo Pedido',
                     colorFondo: const Color(0xFFFFC6E5),
                     colorTexto: const Color(0xFFE23D80),
-                    onTap: () {
-                      // TODO: navegar al formulario de pedido (módulo Finanzas)
-                    },
+                    onTap: () => _irARegistrar(context, TipoMovimiento.pedido),
                   ),
                 ],
               ),
@@ -68,6 +67,15 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Abre Finanzas directamente en la pestaña "Registrar", con el tipo
+  /// de movimiento (Venta o Pedido) ya seleccionado.
+  void _irARegistrar(BuildContext context, TipoMovimiento tipo) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FinanzasScreen()),
     );
   }
 }
@@ -94,7 +102,9 @@ class _BotonAccion extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: colorFondo,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         onPressed: onTap,
         child: Row(
@@ -104,7 +114,11 @@ class _BotonAccion extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               texto,
-              style: TextStyle(color: colorTexto, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: colorTexto,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),

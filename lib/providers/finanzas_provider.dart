@@ -161,7 +161,7 @@ class FinanzasProvider extends ChangeNotifier {
         fechaEntrega: DateTime(2026, 9, 28),
         observaciones: 'Seña de \$25.000',
         estado: 'pendiente',
-      )
+      ),
     ];
 
     // 2. Venta de Tiara Strass ($200.000)
@@ -190,7 +190,7 @@ class FinanzasProvider extends ChangeNotifier {
   Future<void> agregarVenta(Venta nuevaVenta) async {
     // Si tu proyecto usa un helper de base de datos SQLite (ej. DBHelper / DatabaseHelper):
     // await DBHelper.insertarVenta(nuevaVenta.toMap());
-    
+
     ventas.add(nuevaVenta);
     notifyListeners(); // Notifica a HistorialScreen y ReporteScreen para redibujarse
   }
@@ -199,7 +199,7 @@ class FinanzasProvider extends ChangeNotifier {
   Future<void> eliminarPedido(String id) async {
     // Si tu proyecto usa base de datos SQLite:
     // await DBHelper.eliminarPedido(id);
-    
+
     pedidos.removeWhere((p) => p.id == id);
     notifyListeners(); // Quita la tarjeta de la lista en vivo
   }
