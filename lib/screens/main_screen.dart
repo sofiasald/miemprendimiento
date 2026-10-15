@@ -16,7 +16,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 1; // Por defecto abre el Inventario (índice 1)
+  int _currentIndex = 0; // Por defecto abre el inicio (índice 0)
 
   final List<Widget> _pantallas = const [
     HomeScreen(),

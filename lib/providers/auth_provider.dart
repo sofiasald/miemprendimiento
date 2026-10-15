@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
+import 'package:local_auth_darwin/local_auth_darwin.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
@@ -71,6 +73,17 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
       final autenticado = await _localAuth.authenticate(
         localizedReason: 'Confirmá tu identidad para entrar a Atelier',
         biometricOnly: true,
+        authMessages: const <AuthMessages>[
+          AndroidAuthMessages(
+            signInTitle: 'Autenticación con huella',
+            signInHint: 'Tocá el sensor de huella',
+            cancelButton: 'Cancelar',
+          ),
+          IOSAuthMessages(
+            cancelButton: 'Cancelar',
+            localizedFallbackTitle: 'Usar código',
+          ),
+        ],
       );
       if (!autenticado) return false;
 

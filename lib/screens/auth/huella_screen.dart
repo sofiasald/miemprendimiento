@@ -47,55 +47,58 @@ class _HuellaScreenState extends State<HuellaScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF48FC2),
       body: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(flex: 4),
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFBEFF4),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 15,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 5),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            children: [
+              const Spacer(flex: 4),
+              Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBEFF4),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset(
+                    'assets/icon/app_icon.jpg',
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: Image.asset(
-                  'assets/icon/app_icon.jpg',
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
                 ),
               ),
-            ),
-            const Spacer(flex: 4),
-            // Caja de tamaño FIJO (72x72): tanto el ícono como el loader
-            // se centran DENTRO de esta misma caja, así el layout nunca
-            // cambia de tamaño y el ícono no "se corre" de lugar.
-            GestureDetector(
-              onTap: _intentarDesbloquear,
-              child: SizedBox(
-                width: 72,
-                height: 72,
-                child: Center(
-                  child: _verificando
-                      ? const SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                        )
-                      : const Icon(Icons.fingerprint, color: Colors.white, size: 72),
+              const Spacer(flex: 4),
+              // Caja de tamaño fijo (72x72): tanto el ícono como el loader
+              // se centran dentro de esta misma caja, así el layout nunca
+              // cambia de tamaño y el ícono no se corre de lugar.
+              GestureDetector(
+                onTap: _intentarDesbloquear,
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Center(
+                    child: _verificando
+                        ? const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                          )
+                        : const Icon(Icons.fingerprint, color: Colors.white, size: 72),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 60),
-          ],
+              const SizedBox(height: 60),
+            ],
+          ),
         ),
       ),
     );
