@@ -5,6 +5,7 @@ class AtelierColors {
   static const rosa = Color(0xFFE85E98);
   static const rosaClaro = Color(0xFFFEC1E6);
   static const rosaSuave = Color(0xFFF79AD3);
+  static const rosaDeshabilitado = Color(0xFFF9C4D8);
   static const grisFondo = Color(0xFFF8F9FA);
   static const grisBorde = Color(0xFFE0E0E0);
   static const grisTexto = Color(0xFF757575);

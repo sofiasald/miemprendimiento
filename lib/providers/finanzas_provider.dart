@@ -19,7 +19,7 @@ class FinanzasProvider extends ChangeNotifier {
     final db = await DBHelper.instance.database;
     final maps = await db.query(
       'ventas',
-      where: 'visible = 1',
+      where: 'visible = 1 OR visible IS NULL',
       orderBy: 'fecha DESC',
     );
     ventas = maps.map((m) => Venta.fromMap(m)).toList();
@@ -30,7 +30,7 @@ class FinanzasProvider extends ChangeNotifier {
     final db = await DBHelper.instance.database;
     final maps = await db.query(
       'gastos',
-      where: 'visible = 1',
+      where: 'visible = 1 OR visible IS NULL',
       orderBy: 'fecha DESC',
     );
     gastos = maps.map((m) => Gasto.fromMap(m)).toList();
@@ -41,11 +41,20 @@ class FinanzasProvider extends ChangeNotifier {
     final db = await DBHelper.instance.database;
     final maps = await db.query(
       'pedidos',
-      where: 'visible = 1',
+      where: 'visible = 1 OR visible IS NULL',
       orderBy: 'fechaEntrega ASC',
     );
     pedidos = maps.map((m) => Pedido.fromMap(m)).toList();
     notifyListeners();
+  }
+
+  /// Carga ventas, gastos y pedidos de forma paralela desde SQLite.
+  Future<void> cargarTodo() async {
+    await Future.wait([
+      cargarVentas(),
+      cargarGastos(),
+      cargarPedidos(),
+    ]);
   }
 
   // Paso 4 — Validar stock ANTES de abrir la transacción.
@@ -116,6 +125,7 @@ class FinanzasProvider extends ChangeNotifier {
     final gastoMap = gasto.toMap();
     final cantidadGasto = (gastoMap['cantidad'] as num?)?.toDouble() ?? 0.0;
     final varianteId = gastoMap['varianteId'];
+    String? matId = gasto.materialId;
 
     await db.transaction((txn) async {
       await txn.insert('gastos', gastoMap);
@@ -124,10 +134,22 @@ class FinanzasProvider extends ChangeNotifier {
           'UPDATE variantes SET cantidad = cantidad + ? WHERE id = ?',
           [cantidadGasto, varianteId],
         );
-      } else {
+        if (matId == null) {
+          final res = await txn.query(
+            'variantes',
+            columns: ['materialId'],
+            where: 'id = ?',
+            whereArgs: [varianteId],
+          );
+          if (res.isNotEmpty) {
+            matId = res.first['materialId'] as String?;
+          }
+        }
+      }
+      if (matId != null) {
         await txn.rawUpdate(
           'UPDATE materiales SET cantidad = cantidad + ? WHERE id = ?',
-          [cantidadGasto, gasto.materialId],
+          [cantidadGasto, matId],
         );
       }
     });
@@ -135,6 +157,9 @@ class FinanzasProvider extends ChangeNotifier {
     gastos.insert(0, gasto);
     notifyListeners();
   }
+
+  Future<void> agregarGasto(Gasto gasto) => registrarGasto(gasto);
+  Future<void> guardarGasto(Gasto gasto) => registrarGasto(gasto);
 
   // Paso 7 — Registrar pedido: NO toca stock todavía.
 
@@ -145,6 +170,9 @@ class FinanzasProvider extends ChangeNotifier {
     pedidos.sort((a, b) => a.fechaEntrega.compareTo(b.fechaEntrega));
     notifyListeners();
   }
+
+  Future<void> agregarPedido(Pedido pedido) => registrarPedido(pedido);
+  Future<void> guardarPedido(Pedido pedido) => registrarPedido(pedido);
 
   /// Carga datos iniciales de demostración basados en la maqueta de Figma de Atelier.
   void cargarDatosDemostracion() {
@@ -186,26 +214,33 @@ class FinanzasProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Registra una nueva venta, la persiste y actualiza la UI reactivamente.
+  /// Registra una nueva venta, la persiste en SQLite y actualiza la UI reactivamente.
   Future<void> agregarVenta(Venta nuevaVenta) async {
-    // Si tu proyecto usa un helper de base de datos SQLite (ej. DBHelper / DatabaseHelper):
-    // await DBHelper.insertarVenta(nuevaVenta.toMap());
-
-    ventas.add(nuevaVenta);
-    notifyListeners(); // Notifica a HistorialScreen y ReporteScreen para redibujarse
+    final db = await DBHelper.instance.database;
+    await db.insert('ventas', nuevaVenta.toMap());
+    ventas.insert(0, nuevaVenta);
+    notifyListeners();
   }
+
+  Future<void> guardarVenta(Venta nuevaVenta) => agregarVenta(nuevaVenta);
 
   /// Elimina un pedido completado por su identificador único.
   Future<void> eliminarPedido(String id) async {
-    // Si tu proyecto usa base de datos SQLite:
-    // await DBHelper.eliminarPedido(id);
-
+    final db = await DBHelper.instance.database;
+    await db.update('pedidos', {'visible': 0}, where: 'id = ?', whereArgs: [id]);
     pedidos.removeWhere((p) => p.id == id);
-    notifyListeners(); // Quita la tarjeta de la lista en vivo
+    notifyListeners();
   }
 
   /// Actualiza los datos de un pedido existente (modificación o cambio de estado).
   Future<void> actualizarPedido(Pedido pedidoModificado) async {
+    final db = await DBHelper.instance.database;
+    await db.update(
+      'pedidos',
+      pedidoModificado.toMap(),
+      where: 'id = ?',
+      whereArgs: [pedidoModificado.id],
+    );
     final indice = pedidos.indexWhere((p) => p.id == pedidoModificado.id);
     if (indice != -1) {
       pedidos[indice] = pedidoModificado;
@@ -215,12 +250,16 @@ class FinanzasProvider extends ChangeNotifier {
 
   /// Elimina una venta y actualiza los balances de ReporteScreen.
   Future<void> eliminarVenta(String id) async {
+    final db = await DBHelper.instance.database;
+    await db.update('ventas', {'visible': 0}, where: 'id = ?', whereArgs: [id]);
     ventas.removeWhere((v) => v.id == id);
     notifyListeners();
   }
 
   /// Elimina un gasto y actualiza los balances de ReporteScreen.
   Future<void> eliminarGasto(String id) async {
+    final db = await DBHelper.instance.database;
+    await db.update('gastos', {'visible': 0}, where: 'id = ?', whereArgs: [id]);
     gastos.removeWhere((g) => g.id == id);
     notifyListeners();
   }

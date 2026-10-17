@@ -16,7 +16,13 @@ class DBHelper {
   Future<Database> _initDB(String fileName) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, fileName);
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+      onOpen: _onOpen,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -103,6 +109,7 @@ class DBHelper {
         id TEXT PRIMARY KEY,
         productoId TEXT,
         comboId TEXT,
+        nombreItem TEXT,
         monto REAL NOT NULL,
         fecha TEXT NOT NULL,
         visible INTEGER DEFAULT 1
@@ -123,7 +130,11 @@ class DBHelper {
     await db.execute('''
       CREATE TABLE gastos (
         id TEXT PRIMARY KEY,
-        materialId TEXT NOT NULL,
+        materialId TEXT,
+        materialNombre TEXT,
+        varianteId TEXT,
+        varianteNombre TEXT,
+        cantidad REAL DEFAULT 0,
         monto REAL NOT NULL,
         fecha TEXT NOT NULL,
         visible INTEGER DEFAULT 1,
@@ -137,11 +148,67 @@ class DBHelper {
         productoId TEXT,
         comboId TEXT,
         cliente TEXT NOT NULL,
+        nombreItem TEXT,
+        variante TEXT DEFAULT 'Estándar',
+        cantidad INTEGER DEFAULT 1,
+        monto REAL DEFAULT 0,
         fechaEntrega TEXT NOT NULL,
+        fechaRegistro TEXT,
+        fechaEntregaReal TEXT,
+        observaciones TEXT,
+        estado TEXT DEFAULT 'pendiente',
         visible INTEGER DEFAULT 1,
         FOREIGN KEY (productoId) REFERENCES productos (id),
         FOREIGN KEY (comboId) REFERENCES combos (id)
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _asegurarColumnas(db);
+    }
+  }
+
+  Future<void> _onOpen(Database db) async {
+    await _asegurarColumnas(db);
+  }
+
+  Future<void> _asegurarColumnas(Database db) async {
+    // Gastos
+    await _agregarColumnaSiNoExiste(db, 'gastos', 'materialNombre', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'gastos', 'varianteId', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'gastos', 'varianteNombre', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'gastos', 'cantidad', 'REAL DEFAULT 0');
+
+    // Ventas
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'nombreItem', 'TEXT');
+
+    // Pedidos
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'nombreItem', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'variante', 'TEXT DEFAULT "Estándar"');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'cantidad', 'INTEGER DEFAULT 1');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'monto', 'REAL DEFAULT 0');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'fechaRegistro', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'fechaEntregaReal', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'observaciones', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'estado', 'TEXT DEFAULT "pendiente"');
+  }
+
+  Future<void> _agregarColumnaSiNoExiste(
+    Database db,
+    String tabla,
+    String columna,
+    String tipoDefinicion,
+  ) async {
+    try {
+      final info = await db.rawQuery('PRAGMA table_info($tabla)');
+      final existe = info.any((row) => row['name'] == columna);
+      if (!existe) {
+        await db.execute('ALTER TABLE $tabla ADD COLUMN $columna $tipoDefinicion');
+      }
+    } catch (_) {
+      // Ignorar si la tabla aún no existe o ya posee la columna
+    }
   }
 }

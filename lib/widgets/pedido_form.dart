@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../models/movimiento_models.dart';
+import '../models/movimiento_models.dart' hide Variante;
 import '../models/pedido.dart';
+import '../models/variante.dart';
+import '../providers/inventario_provider.dart';
 import 'selector_articulo_acordeon.dart';
 
 class PedidoForm extends StatefulWidget {
@@ -29,16 +32,30 @@ class _PedidoFormState extends State<PedidoForm> {
   String? _tipoSeleccionado;
   String? _idSeleccionado;
   String _nombreItem = '';
-  DateTime _fechaEntrega = DateTime.now().add(const Duration(days: 7));
+  DateTime _fechaEntrega = DateTime.now();
+  final Map<String, String?> _variantesElegidas = {};
+  final Set<String> _listasVariantesAbiertas = {};
 
   // 👇 Validación del formulario completo
   bool get _formularioCompleto {
     final monto = double.tryParse(_montoCtrl.text) ?? 0;
     final cantidad = int.tryParse(_cantidadCtrl.text) ?? 0;
-    return _idSeleccionado != null &&
-        _clienteCtrl.text.trim().isNotEmpty &&
-        cantidad > 0 &&
-        monto > 0;
+    if (_idSeleccionado == null ||
+        _clienteCtrl.text.trim().isNotEmpty == false ||
+        cantidad <= 0 ||
+        monto <= 0) {
+      return false;
+    }
+
+    final inv = context.read<InventarioProvider>();
+    final reqs = inv.obtenerVariantesRequeridas(
+      productoId: _tipoSeleccionado == 'producto' ? _idSeleccionado : null,
+      comboId: _tipoSeleccionado == 'combo' ? _idSeleccionado : null,
+    );
+    for (final req in reqs) {
+      if (_variantesElegidas[req.key] == null) return false;
+    }
+    return true;
   }
 
   @override
@@ -52,6 +69,14 @@ class _PedidoFormState extends State<PedidoForm> {
 
   @override
   Widget build(BuildContext context) {
+    final inv = context.watch<InventarioProvider>();
+    final variantesReq = _idSeleccionado != null
+        ? inv.obtenerVariantesRequeridas(
+            productoId: _tipoSeleccionado == 'producto' ? _idSeleccionado : null,
+            comboId: _tipoSeleccionado == 'combo' ? _idSeleccionado : null,
+          )
+        : <VarianteRequerida>[];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
       child: Column(
@@ -79,7 +104,7 @@ class _PedidoFormState extends State<PedidoForm> {
                   Expanded(
                     child: Text(
                       _idSeleccionado == null
-                          ? 'Seleccionar Artículo . . .'
+                          ? 'Seleccionar artículo . . .'
                           : _nombreItem,
                       style: TextStyle(
                         fontSize: 15,
@@ -101,6 +126,11 @@ class _PedidoFormState extends State<PedidoForm> {
               ),
             ),
           ),
+
+          if (variantesReq.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _seccionDetallesVariantes(variantesReq),
+          ],
 
           const SizedBox(height: 20),
 
@@ -255,8 +285,8 @@ class _PedidoFormState extends State<PedidoForm> {
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
-                        : AtelierColors.rosaSuave,
-                    disabledBackgroundColor: AtelierColors.rosaSuave,
+                        : AtelierColors.rosaDeshabilitado,
+                    disabledBackgroundColor: AtelierColors.rosaDeshabilitado,
                     foregroundColor: Colors.white,
                     disabledForegroundColor: Colors.white,
                     elevation: 0,
@@ -297,11 +327,16 @@ class _PedidoFormState extends State<PedidoForm> {
   );
 
   Future<void> _seleccionarFecha() async {
+    final now = DateTime.now();
+    final hoy = DateTime(now.year, now.month, now.day);
+    final initial = _fechaEntrega.isBefore(hoy) ? hoy : _fechaEntrega;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _fechaEntrega,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: initial,
+      firstDate: hoy,
+      lastDate: hoy.add(const Duration(days: 365)),
+      locale: const Locale('es', 'ES'),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
@@ -330,6 +365,8 @@ class _PedidoFormState extends State<PedidoForm> {
             _idSeleccionado = id;
             _nombreItem = nombre;
             _montoCtrl.text = precio.toInt().toString();
+            _variantesElegidas.clear();
+            _listasVariantesAbiertas.clear();
           });
         },
       ),
@@ -343,11 +380,36 @@ class _PedidoFormState extends State<PedidoForm> {
   void _guardar() {
     if (_clienteCtrl.text.trim().isEmpty || _idSeleccionado == null) return;
 
+    final inv = context.read<InventarioProvider>();
+    final reqs = inv.obtenerVariantesRequeridas(
+      productoId: _tipoSeleccionado == 'producto' ? _idSeleccionado : null,
+      comboId: _tipoSeleccionado == 'combo' ? _idSeleccionado : null,
+    );
+
+    String textoVariantes = 'Estándar';
+    if (reqs.isNotEmpty) {
+      final partes = <String>[];
+      for (final req in reqs) {
+        final varId = _variantesElegidas[req.key];
+        if (varId != null) {
+          final coincidente = req.opciones.where((v) => v.id == varId);
+          if (coincidente.isNotEmpty) {
+            final sufijo = req.ocurrencia > 1 ? ' (${req.ocurrencia})' : '';
+            partes.add('${req.materialNombre}$sufijo: ${coincidente.first.nombre}');
+          }
+        }
+      }
+      if (partes.isNotEmpty) {
+        textoVariantes = partes.join(', ');
+      }
+    }
+
     final pedido = Pedido(
       productoId: _tipoSeleccionado == 'producto' ? _idSeleccionado : null,
       comboId: _tipoSeleccionado == 'combo' ? _idSeleccionado : null,
       cliente: _clienteCtrl.text.trim(),
       nombreItem: _nombreItem,
+      variante: textoVariantes,
       cantidad: int.tryParse(_cantidadCtrl.text) ?? 1,
       monto: double.tryParse(_montoCtrl.text) ?? 0,
       fechaEntrega: _fechaEntrega,
@@ -365,7 +427,140 @@ class _PedidoFormState extends State<PedidoForm> {
       _montoCtrl.clear();
       _observacionesCtrl.clear();
       _cantidadCtrl.text = '1';
+      _variantesElegidas.clear();
+      _listasVariantesAbiertas.clear();
+      _fechaEntrega = DateTime.now();
     });
+  }
+
+  Widget _seccionDetallesVariantes(List<VarianteRequerida> variantes) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < variantes.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          _selectorVariante(variantes[i]),
+        ],
+      ],
+    );
+  }
+
+  Widget _selectorVariante(VarianteRequerida req) {
+    final valorElegido = _variantesElegidas[req.key];
+    final estaAbierta = _listasVariantesAbiertas.contains(req.key);
+    final varianteSel = valorElegido != null
+        ? req.opciones.where((v) => v.id == valorElegido).firstOrNull
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          req.etiqueta,
+          style: const TextStyle(
+            fontSize: 15,
+            color: AtelierColors.grisTexto,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AtelierColors.grisBorde),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              InkWell(
+                onTap: () => setState(() {
+                  if (estaAbierta) {
+                    _listasVariantesAbiertas.remove(req.key);
+                  } else {
+                    _listasVariantesAbiertas.add(req.key);
+                  }
+                }),
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        varianteSel == null
+                            ? 'Seleccionar variante . . .'
+                            : varianteSel.nombre,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: varianteSel == null
+                              ? FontWeight.w500
+                              : FontWeight.w600,
+                          color: varianteSel == null
+                              ? AtelierColors.grisTexto
+                              : AtelierColors.negroSuave,
+                        ),
+                      ),
+                      Icon(
+                        estaAbierta
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: AtelierColors.rosa,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (estaAbierta)
+                ...req.opciones.asMap().entries.map((e) {
+                  final v = e.value;
+                  final esUltimo = e.key == req.opciones.length - 1;
+                  final seleccionado = valorElegido == v.id;
+
+                  return Column(
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() {
+                          _variantesElegidas[req.key] = v.id;
+                          _listasVariantesAbiertas.remove(req.key);
+                        }),
+                        child: Container(
+                          height: 48,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          color: seleccionado
+                              ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
+                              : Colors.transparent,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(v.nombre, style: const TextStyle(fontSize: 14)),
+                              Text(
+                                '(Stock disponible: ${v.cantidad.toStringAsFixed(0)})',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AtelierColors.grisTexto,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (!esUltimo)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: CustomPaint(
+                            size: const Size(double.infinity, 1),
+                            painter: _DashedLinePainter(
+                              color: AtelierColors.grisBorde,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -392,7 +587,7 @@ class _SelectorArticuloSheet extends StatefulWidget {
 }
 
 class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
-  bool _productosAbierto = true;
+  bool _productosAbierto = false;
   bool _combosAbierto = false;
 
   @override
@@ -573,4 +768,26 @@ class _SelectorArticuloSheetState extends State<_SelectorArticuloSheet> {
       (m) => '${m[1]}.',
     );
   }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const dashWidth = 4.0;
+    const dashSpace = 4.0;
+    double startX = 0;
+    while (startX < size.width) {
+      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

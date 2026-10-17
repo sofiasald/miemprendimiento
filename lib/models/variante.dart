@@ -35,3 +35,24 @@ class Variante {
         visible: m['visible'] == 1,
       );
 }
+
+class VarianteRequerida {
+  final String key;
+  final String materialId;
+  final String materialNombre;
+  final String etiqueta;
+  final int cantidad;
+  final int ocurrencia;
+  final List<Variante> opciones;
+
+  VarianteRequerida({
+    required this.key,
+    required this.materialId,
+    required this.materialNombre,
+    required this.etiqueta,
+    required this.cantidad,
+    this.ocurrencia = 1,
+    required this.opciones,
+  });
+}
+

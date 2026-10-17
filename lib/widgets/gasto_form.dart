@@ -26,13 +26,13 @@ class _GastoFormState extends State<GastoForm> {
   final _cantidadCtrl = TextEditingController();
   final _montoCtrl = TextEditingController();
 
-  bool _listaMaterialesAbierta = true;
-  bool _listaVariantesAbierta = true;
+  bool _listaMaterialesAbierta = false;
+  bool _listaVariantesAbierta = false;
 
   // 👇 Validación del formulario completo
   bool get _formularioCompleto {
-    final monto = double.tryParse(_montoCtrl.text) ?? 0;
-    final cantidad = double.tryParse(_cantidadCtrl.text) ?? 0;
+    final monto = double.tryParse(_montoCtrl.text.trim().replaceAll(',', '.')) ?? 0;
+    final cantidad = double.tryParse(_cantidadCtrl.text.trim().replaceAll(',', '.')) ?? 0;
     final variantes = _materialId != null
         ? widget.variantesPorMaterial[_materialId!] ?? []
         : <Variante>[];
@@ -40,7 +40,7 @@ class _GastoFormState extends State<GastoForm> {
     return _materialId != null &&
         cantidad > 0 &&
         monto > 0 &&
-        (!variantes.any((v) => true) || _varianteId != null);
+        (variantes.isEmpty || _varianteId != null);
   }
 
   @override
@@ -113,7 +113,7 @@ class _GastoFormState extends State<GastoForm> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _cantidadCtrl,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: _inputDecoration('0'),
                       onChanged: (_) => setState(() {}), // 👈
                     ),
@@ -219,7 +219,7 @@ class _GastoFormState extends State<GastoForm> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _montoCtrl,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: _inputDecorationMonto('\$ 0'),
                       onChanged: (_) => setState(() {}), // 👈
                     ),
@@ -256,16 +256,17 @@ class _GastoFormState extends State<GastoForm> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
-                    // 👇 Color dinámico
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
-                        : AtelierColors.rosaSuave,
+                        : AtelierColors.rosaDeshabilitado,
+                    disabledBackgroundColor: AtelierColors.rosaDeshabilitado,
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  // 👇 Habilitado solo si el form está completo
                   onPressed: _formularioCompleto ? _guardar : null,
                   child: const Text(
                     'Registrar',
@@ -329,10 +330,22 @@ class _GastoFormState extends State<GastoForm> {
               ),
             ),
           ),
-          if (_listaMaterialesAbierta)
-            ...widget.materiales.asMap().entries.map((e) {
-              final m = e.value;
-              final esUltimo = e.key == widget.materiales.length - 1;
+          if (_listaMaterialesAbierta) ...[
+            if (widget.materiales.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(14),
+                child: Text(
+                  'No hay materiales registrados en inventario.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AtelierColors.grisTexto,
+                  ),
+                ),
+              )
+            else
+              ...widget.materiales.asMap().entries.map((e) {
+                final m = e.value;
+                final esUltimo = e.key == widget.materiales.length - 1;
               return Column(
                 children: [
                   Container(
@@ -375,6 +388,7 @@ class _GastoFormState extends State<GastoForm> {
                 ],
               );
             }),
+          ],
         ],
       ),
     );
@@ -512,8 +526,8 @@ class _GastoFormState extends State<GastoForm> {
   }
 
   void _guardar() {
-    final monto = double.tryParse(_montoCtrl.text) ?? 0;
-    final cantidad = double.tryParse(_cantidadCtrl.text) ?? 0;
+    final monto = double.tryParse(_montoCtrl.text.trim().replaceAll(',', '.')) ?? 0;
+    final cantidad = double.tryParse(_cantidadCtrl.text.trim().replaceAll(',', '.')) ?? 0;
     if (_materialId == null || monto <= 0 || cantidad <= 0) return;
 
     final variantes = widget.variantesPorMaterial[_materialId!] ?? [];
@@ -541,6 +555,8 @@ class _GastoFormState extends State<GastoForm> {
       _varianteId = null;
       _cantidadCtrl.clear();
       _montoCtrl.clear();
+      _listaMaterialesAbierta = false;
+      _listaVariantesAbierta = false;
     });
   }
 }

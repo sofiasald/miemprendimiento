@@ -58,13 +58,13 @@ class Pedido {
     cantidad: map['cantidad'] ?? 1,
     monto: (map['monto'] as num?)?.toDouble() ?? 0.0,
     fechaEntrega: map['fechaEntrega'] != null
-        ? DateTime.parse(map['fechaEntrega'])
+        ? (DateTime.tryParse(map['fechaEntrega'].toString()) ?? DateTime.now())
         : DateTime.now(),
     fechaRegistro: map['fechaRegistro'] != null
-        ? DateTime.parse(map['fechaRegistro'])
+        ? DateTime.tryParse(map['fechaRegistro'].toString())
         : null,
     fechaEntregaReal: map['fechaEntregaReal'] != null
-        ? DateTime.parse(map['fechaEntregaReal'])
+        ? DateTime.tryParse(map['fechaEntregaReal'].toString())
         : null,
     observaciones: map['observaciones'] ?? '',
     estado: map['estado'] ?? 'pendiente',

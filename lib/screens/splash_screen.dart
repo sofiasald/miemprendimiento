@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/inventario_provider.dart';
+import '../providers/finanzas_provider.dart';
 import '../providers/auth_provider.dart';
 import 'auth/register_screen.dart';
 import 'auth/huella_screen.dart';
@@ -25,10 +26,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
     try {
       final inventarioProvider = context.read<InventarioProvider>();
+      final finanzasProvider = context.read<FinanzasProvider>();
       await Future.wait([
         inventarioProvider.cargarMateriales(),
         inventarioProvider.cargarProductos(),
         inventarioProvider.cargarCombos(),
+        finanzasProvider.cargarTodo(),
       ]);
     } catch (_) {
       // Si ocurre algún fallo de lectura, la app continúa normalmente

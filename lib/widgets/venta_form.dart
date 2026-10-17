@@ -1,42 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../models/movimiento_models.dart';
+import '../models/movimiento_models.dart' hide Variante;
 import '../models/venta.dart';
+import '../models/variante.dart';
+import '../providers/inventario_provider.dart';
 import 'selector_articulo_acordeon.dart';
 
 class VentaForm extends StatefulWidget {
   final List<Producto> productos;
   final List<Combo> combos;
   final List<MaterialItem> materiales;
-  final Map<String, List<Variante>> variantesPorMaterial;
-  final void Function(Venta venta, List<MaterialConsumo> consumos) onRegistrar;
-
-  final Map<String, List<VarianteRequerida>> variantesRequeridasPorCombo;
+  final dynamic variantesPorMaterial;
+  final void Function(Venta venta, Map<String, String> variantesElegidas) onRegistrar;
 
   const VentaForm({
     super.key,
     required this.productos,
     required this.combos,
     required this.materiales,
-    required this.variantesPorMaterial,
+    this.variantesPorMaterial,
     required this.onRegistrar,
-    this.variantesRequeridasPorCombo = const {},
+    Map<String, List<VarianteRequerida>>? variantesRequeridasPorCombo,
   });
 
   @override
   State<VentaForm> createState() => _VentaFormState();
-}
-
-class VarianteRequerida {
-  final String materialId;
-  final String materialNombre;
-  final List<Variante> opciones;
-
-  VarianteRequerida({
-    required this.materialId,
-    required this.materialNombre,
-    required this.opciones,
-  });
 }
 
 class _VentaFormState extends State<VentaForm> {
@@ -49,6 +38,7 @@ class _VentaFormState extends State<VentaForm> {
   bool _listaAbierta = false;
 
   final Map<String, String?> _variantesElegidas = {};
+  final Set<String> _listasVariantesAbiertas = {};
 
   late DateTime _fecha;
   final _montoCtrl = TextEditingController();
@@ -60,11 +50,13 @@ class _VentaFormState extends State<VentaForm> {
     final monto = double.tryParse(_montoCtrl.text) ?? 0;
     if (monto <= 0) return false;
 
-    if (_tipoActivo == 'combo') {
-      final reqs = widget.variantesRequeridasPorCombo[_idSeleccionado] ?? [];
-      for (final req in reqs) {
-        if (_variantesElegidas[req.materialId] == null) return false;
-      }
+    final inv = context.read<InventarioProvider>();
+    final reqs = inv.obtenerVariantesRequeridas(
+      productoId: _tipoActivo == 'producto' ? _idSeleccionado : null,
+      comboId: _tipoActivo == 'combo' ? _idSeleccionado : null,
+    );
+    for (final req in reqs) {
+      if (_variantesElegidas[req.key] == null) return false;
     }
     return true;
   }
@@ -95,8 +87,12 @@ class _VentaFormState extends State<VentaForm> {
               )
               .toList();
 
-    final variantesReq = _tipoActivo == 'combo' && _idSeleccionado != null
-        ? widget.variantesRequeridasPorCombo[_idSeleccionado] ?? []
+    final inv = context.watch<InventarioProvider>();
+    final variantesReq = _idSeleccionado != null
+        ? inv.obtenerVariantesRequeridas(
+            productoId: _tipoActivo == 'producto' ? _idSeleccionado : null,
+            comboId: _tipoActivo == 'combo' ? _idSeleccionado : null,
+          )
         : <VarianteRequerida>[];
 
     return Padding(
@@ -106,8 +102,8 @@ class _VentaFormState extends State<VentaForm> {
         children: [
           Text(
             _tipoActivo == 'producto'
-                ? 'Producto Vendido *'
-                : 'Combo Vendido *',
+                ? 'Producto vendido *'
+                : 'Combo vendido *',
             style: const TextStyle(
               fontSize: 15,
               color: AtelierColors.grisTexto,
@@ -125,8 +121,9 @@ class _VentaFormState extends State<VentaForm> {
                   _idSeleccionado = null;
                   _nombreItem = '';
                   _precio = 0;
-                  _listaAbierta = true;
+                  _listaAbierta = false;
                   _variantesElegidas.clear();
+                  _listasVariantesAbiertas.clear();
                   _montoCtrl.clear();
                 }),
               ),
@@ -139,8 +136,9 @@ class _VentaFormState extends State<VentaForm> {
                   _idSeleccionado = null;
                   _nombreItem = '';
                   _precio = 0;
-                  _listaAbierta = true;
+                  _listaAbierta = false;
                   _variantesElegidas.clear();
+                  _listasVariantesAbiertas.clear();
                   _montoCtrl.clear();
                 }),
               ),
@@ -222,10 +220,12 @@ class _VentaFormState extends State<VentaForm> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
-                    // 👇 Color dinámico
                     backgroundColor: _formularioCompleto
                         ? AtelierColors.rosa
-                        : const Color.fromARGB(255, 252, 181, 224),
+                        : AtelierColors.rosaDeshabilitado,
+                    disabledBackgroundColor: AtelierColors.rosaDeshabilitado,
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -267,7 +267,7 @@ class _VentaFormState extends State<VentaForm> {
             decoration: BoxDecoration(
               color: activo
                   ? AtelierColors.rosaSuave
-                  : AtelierColors.rosaSuave.withOpacity(0.35),
+                  : AtelierColors.rosaSuave.withValues(alpha: 0.35),
               shape: BoxShape.circle,
             ),
           ),
@@ -279,7 +279,7 @@ class _VentaFormState extends State<VentaForm> {
               fontWeight: FontWeight.w600,
               color: activo
                   ? AtelierColors.negroSuave
-                  : AtelierColors.negroSuave.withOpacity(0.61),
+                  : AtelierColors.negroSuave.withValues(alpha: 0.61),
             ),
           ),
         ],
@@ -375,13 +375,14 @@ class _VentaFormState extends State<VentaForm> {
                             _listaAbierta = false;
                             _montoCtrl.text = item.precio.toInt().toString();
                             _variantesElegidas.clear();
+                            _listasVariantesAbiertas.clear();
                           });
                         },
                         child: Container(
                           height: 48,
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           color: seleccionado
-                              ? AtelierColors.rosaClaro.withOpacity(0.25)
+                              ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
                               : Colors.transparent,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -430,95 +431,132 @@ class _VentaFormState extends State<VentaForm> {
   }
 
   Widget _seccionDetallesCombo(List<VarianteRequerida> variantes) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEDEAEA).withOpacity(0.78),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'DETALLES Y VARIANTES DEL COMBO',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF616161),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Elegí las variantes de materiales que incluye este combo.',
-            style: TextStyle(fontSize: 12, color: AtelierColors.negroSuave),
-          ),
-          const SizedBox(height: 12),
-          ...variantes.map(_selectorVariante),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < variantes.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          _selectorVariante(variantes[i]),
         ],
-      ),
+      ],
     );
   }
 
   Widget _selectorVariante(VarianteRequerida req) {
-    final valorElegido = _variantesElegidas[req.materialId];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${req.materialNombre} *',
-            style: const TextStyle(
-              fontSize: 13,
-              color: AtelierColors.grisTexto,
-            ),
+    final valorElegido = _variantesElegidas[req.key];
+    final estaAbierta = _listasVariantesAbiertas.contains(req.key);
+    final varianteSel = valorElegido != null
+        ? req.opciones.where((v) => v.id == valorElegido).firstOrNull
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          req.etiqueta,
+          style: const TextStyle(
+            fontSize: 15,
+            color: AtelierColors.grisTexto,
           ),
-          const SizedBox(height: 6),
-          Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AtelierColors.grisBorde),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: valorElegido,
-                hint: const Text(
-                  'Seleccionar . . .',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AtelierColors.grisTexto,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AtelierColors.grisBorde),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              InkWell(
+                onTap: () => setState(() {
+                  if (estaAbierta) {
+                    _listasVariantesAbiertas.remove(req.key);
+                  } else {
+                    _listasVariantesAbiertas.add(req.key);
+                  }
+                }),
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        varianteSel == null
+                            ? 'Seleccionar variante . . .'
+                            : varianteSel.nombre,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: varianteSel == null
+                              ? FontWeight.w500
+                              : FontWeight.w600,
+                          color: varianteSel == null
+                              ? AtelierColors.grisTexto
+                              : AtelierColors.negroSuave,
+                        ),
+                      ),
+                      Icon(
+                        estaAbierta
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: AtelierColors.rosa,
+                      ),
+                    ],
                   ),
                 ),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: AtelierColors.rosa,
-                ),
-                items: req.opciones
-                    .map(
-                      (v) => DropdownMenuItem<String>(
-                        value: v.id,
-                        child: Text(
-                          v.nombre,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AtelierColors.negroSuave,
+              ),
+              if (estaAbierta)
+                ...req.opciones.asMap().entries.map((e) {
+                  final v = e.value;
+                  final esUltimo = e.key == req.opciones.length - 1;
+                  final seleccionado = valorElegido == v.id;
+
+                  return Column(
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() {
+                          _variantesElegidas[req.key] = v.id;
+                          _listasVariantesAbiertas.remove(req.key);
+                        }),
+                        child: Container(
+                          height: 48,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          color: seleccionado
+                              ? AtelierColors.rosaClaro.withValues(alpha: 0.25)
+                              : Colors.transparent,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(v.nombre, style: const TextStyle(fontSize: 14)),
+                              Text(
+                                '(Stock disponible: ${v.cantidad.toStringAsFixed(0)})',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AtelierColors.grisTexto,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (id) {
-                  setState(() => _variantesElegidas[req.materialId] = id);
-                },
-              ),
-            ),
+                      if (!esUltimo)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: CustomPaint(
+                            size: const Size(double.infinity, 1),
+                            painter: _DashedLinePainter(
+                              color: AtelierColors.grisBorde,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -616,6 +654,7 @@ class _VentaFormState extends State<VentaForm> {
       initialDate: _fecha,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      locale: const Locale('es', 'ES'),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
@@ -630,18 +669,12 @@ class _VentaFormState extends State<VentaForm> {
   }
 
   void _guardar() {
-    final consumos = <MaterialConsumo>[];
-    if (_tipoActivo == 'combo') {
-      final reqs = widget.variantesRequeridasPorCombo[_idSeleccionado] ?? [];
-      for (final req in reqs) {
-        final varianteId = _variantesElegidas[req.materialId];
-        if (varianteId != null) {
-          consumos.add(
-            MaterialConsumo(materialId: req.materialId, cantidad: 1),
-          );
-        }
+    final mapaVariantes = <String, String>{};
+    _variantesElegidas.forEach((k, v) {
+      if (v != null && v.isNotEmpty) {
+        mapaVariantes[k] = v;
       }
-    }
+    });
 
     final venta = Venta(
       productoId: _tipoActivo == 'producto' ? _idSeleccionado : null,
@@ -651,13 +684,14 @@ class _VentaFormState extends State<VentaForm> {
       fecha: _fecha.toIso8601String(),
     );
 
-    widget.onRegistrar(venta, consumos);
+    widget.onRegistrar(venta, mapaVariantes);
     setState(() {
       _idSeleccionado = null;
       _nombreItem = '';
       _precio = 0;
       _listaAbierta = false;
       _variantesElegidas.clear();
+      _listasVariantesAbiertas.clear();
       _montoCtrl.clear();
       _fecha = DateTime.now();
     });

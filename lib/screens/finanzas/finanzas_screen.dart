@@ -4,16 +4,23 @@ import 'package:provider/provider.dart';
 import '../../models/movimiento_models.dart' as mov;
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
-import '../../services/db_helper.dart';
 import '../../widgets/tipo_movimiento_selector.dart';
 import '../../widgets/venta_form.dart';
 import '../../widgets/gasto_form.dart';
 import '../../widgets/pedido_form.dart';
+import '../../models/venta.dart';
+import '../../models/gasto.dart';
+import '../../models/pedido.dart';
 import 'historial_screen.dart';
 import 'reporte_screen.dart';
 
 class FinanzasScreen extends StatefulWidget {
-  const FinanzasScreen({super.key});
+  final mov.TipoMovimiento tipoInicial;
+
+  const FinanzasScreen({
+    super.key,
+    this.tipoInicial = mov.TipoMovimiento.pedido,
+  });
 
   @override
   State<FinanzasScreen> createState() => _FinanzasScreenState();
@@ -22,16 +29,20 @@ class FinanzasScreen extends StatefulWidget {
 class _FinanzasScreenState extends State<FinanzasScreen> {
   int _indiceActivo = 0;
   int _versionHistorial = 0;
-  mov.TipoMovimiento _tipo = mov.TipoMovimiento.venta;
+  late mov.TipoMovimiento _tipo;
 
   @override
   void initState() {
     super.initState();
+    _tipo = widget.tipoInicial;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final inv = context.read<InventarioProvider>();
       inv.cargarMateriales();
       inv.cargarProductos();
       inv.cargarCombos();
+      final fin = context.read<FinanzasProvider>();
+      fin.cargarTodo();
     });
   }
 
@@ -169,7 +180,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
           combos: combos,
           materiales: materiales,
           variantesPorMaterial: variantesPorMaterial,
-          variantesRequeridasPorCombo: const {}, // podés generarlo desde inv
+          variantesRequeridasPorCombo: const {},
           onRegistrar: _registrarVenta,
         );
 
@@ -190,74 +201,36 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   }
 
   // ===========================================================================
-  // REGISTRAR VENTA  →  descuenta stock + guarda en historial
+  // REGISTRAR VENTA  →  descuenta stock de insumos + guarda en historial
   // ===========================================================================
   Future<void> _registrarVenta(
     dynamic venta,
-    List<mov.MaterialConsumo> consumos,
+    dynamic variantesElegidas,
   ) async {
     final finanzas = context.read<FinanzasProvider>();
-    final provider = finanzas as dynamic;
-
-    Future<void> guardarVenta() async {
-      try {
-        await provider.agregarVenta(venta);
-      } on NoSuchMethodError {
-        try {
-          await provider.guardarVenta(venta);
-        } on NoSuchMethodError {
-          try {
-            await provider.registrarVenta(venta);
-          } catch (_) {
-            throw StateError(
-              'FinanzasProvider no tiene un método para guardar ventas.',
-            );
-          }
-        }
-      }
-    }
-
-    if (consumos.isEmpty) {
-      try {
-        await guardarVenta();
-        if (!mounted) return;
-        _mostrarSnack('Venta registrada en el historial');
-        setState(() {
-          _indiceActivo = 1;
-          _versionHistorial++;
-        });
-      } catch (_) {
-        _mostrarAlerta('No se pudo registrar la venta.');
-      }
-      return;
-    }
-
-    final materialesActuales = _materialesComoMov();
-    if (!hayStockSuficiente(consumos, materialesActuales)) {
-      _mostrarAlerta('No hay stock suficiente, revisá los materiales.');
-      return;
-    }
-
-    final totalConsumidoPorMaterial = <String, double>{};
-    for (final consumo in consumos) {
-      totalConsumidoPorMaterial[consumo.materialId] =
-          (totalConsumidoPorMaterial[consumo.materialId] ?? 0) +
-          consumo.cantidad;
-    }
-
     final inv = context.read<InventarioProvider>();
-    final stockDescontado = <String, double>{};
 
     try {
-      // 1. Descontar stock de materiales
-      for (final entry in totalConsumidoPorMaterial.entries) {
-        await _ajustarStock(entry.key, -entry.value);
-        stockDescontado[entry.key] = entry.value;
-      }
-      await inv.cargarMateriales();
+      if (venta is Venta) {
+        Map<String, String>? mapa;
+        if (variantesElegidas is Map<String, String>) {
+          mapa = variantesElegidas;
+        } else if (variantesElegidas is Map) {
+          mapa = variantesElegidas.map((k, v) => MapEntry(k.toString(), v.toString()));
+        }
 
-      // 2. Guardar la venta en SQLite
-      await guardarVenta();
+        // Descontar stock de materiales en unidades enteras con la variante específica
+        await inv.descontarStockPorVentaOPedido(
+          productoId: venta.productoId,
+          comboId: venta.comboId,
+          nombreItem: venta.nombreItem,
+          variantesElegidas: mapa,
+          unidades: 1,
+        );
+        await finanzas.agregarVenta(venta);
+      } else {
+        await (finanzas as dynamic).agregarVenta(venta);
+      }
 
       if (!mounted) return;
       _mostrarSnack('Venta registrada en el historial');
@@ -265,15 +238,10 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
         _indiceActivo = 1;
         _versionHistorial++;
       });
-    } catch (_) {
-      // Si falla la venta, reponemos el stock para no dejar materiales descontados
-      for (final entry in stockDescontado.entries) {
-        await _ajustarStock(entry.key, entry.value);
-      }
-      await inv.cargarMateriales();
-
+    } catch (e, stack) {
+      debugPrint('Error al registrar venta: $e\n$stack');
       if (!mounted) return;
-      _mostrarAlerta('No se pudo registrar la venta. Se revirtió el stock.');
+      _mostrarAlerta('No se pudo registrar la venta.');
     }
   }
 
@@ -281,44 +249,16 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   // REGISTRAR GASTO  →  suma stock + guarda en historial
   // ===========================================================================
   Future<void> _registrarGasto(dynamic gasto) async {
-    String? materialId;
-    double cantidad = 0;
-    var debeRevertirStock = false;
-
     try {
-      // 1. Sumar stock al material comprado
-      materialId = gasto.materialId?.toString();
-      final cantidadRecibida = gasto.cantidad;
-      cantidad = cantidadRecibida is num
-          ? cantidadRecibida.toDouble()
-          : double.tryParse(cantidadRecibida?.toString() ?? '') ?? 0;
-
-      if (materialId != null && cantidad > 0) {
-        final inv = context.read<InventarioProvider>();
-        debeRevertirStock = true;
-        await _ajustarStock(materialId, cantidad);
-        await inv.cargarMateriales();
-      }
-
-      // 2. Guardar el gasto en SQLite y dejarlo visible en Historial
       final finanzas = context.read<FinanzasProvider>();
-      final provider = finanzas as dynamic;
+      final inv = context.read<InventarioProvider>();
 
-      try {
-        await provider.agregarGasto(gasto);
-      } on NoSuchMethodError {
-        try {
-          await provider.guardarGasto(gasto);
-        } on NoSuchMethodError {
-          try {
-            await provider.registrarGasto(gasto);
-          } catch (_) {
-            throw StateError(
-              'FinanzasProvider no tiene un método para guardar gastos.',
-            );
-          }
-        }
+      if (gasto is Gasto) {
+        await finanzas.registrarGasto(gasto);
+      } else {
+        await (finanzas as dynamic).registrarGasto(gasto);
       }
+      await inv.cargarMateriales();
 
       if (!mounted) return;
       _mostrarSnack('Gasto registrado en el historial');
@@ -326,13 +266,8 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
         _indiceActivo = 1;
         _versionHistorial++;
       });
-    } catch (_) {
-      if (debeRevertirStock && materialId != null && cantidad > 0) {
-        await _ajustarStock(materialId, -cantidad);
-        final inv = context.read<InventarioProvider>();
-        await inv.cargarMateriales();
-      }
-
+    } catch (e, stack) {
+      debugPrint('Error al registrar gasto: $e\n$stack');
       if (!mounted) return;
       _mostrarAlerta('No se pudo registrar el gasto en el historial.');
     }
@@ -343,24 +278,12 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   // ===========================================================================
 
   Future<void> _registrarPedido(dynamic pedido) async {
-    final finanzas = context.read<FinanzasProvider>();
-    final provider = finanzas as dynamic;
-
     try {
-      try {
-        await provider.agregarPedido(pedido);
-      } on NoSuchMethodError {
-        try {
-          await provider.guardarPedido(pedido);
-        } on NoSuchMethodError {
-          try {
-            await provider.registrarPedido(pedido);
-          } catch (_) {
-            throw StateError(
-              'FinanzasProvider no tiene un método para guardar pedidos.',
-            );
-          }
-        }
+      final finanzas = context.read<FinanzasProvider>();
+      if (pedido is Pedido) {
+        await finanzas.registrarPedido(pedido);
+      } else {
+        await (finanzas as dynamic).registrarPedido(pedido);
       }
 
       if (!mounted) return;
@@ -369,72 +292,14 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
         _indiceActivo = 1;
         _versionHistorial++;
       });
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('Error al registrar pedido: $e\n$stack');
       if (!mounted) return;
       _mostrarAlerta('No se pudo registrar el pedido en el historial.');
     }
   }
 
-  bool hayStockSuficiente(
-    List<mov.MaterialConsumo> consumos,
-    List<mov.MaterialItem> materiales,
-  ) {
-    final stockPorMaterial = {
-      for (final material in materiales) material.id: material.cantidad,
-    };
 
-    for (final consumo in consumos) {
-      final stockActual = stockPorMaterial[consumo.materialId] ?? 0;
-      if (stockActual < consumo.cantidad) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  List<mov.MaterialItem> _materialesComoMov() {
-    final inv = context.read<InventarioProvider>();
-    return inv.materiales
-        .map(
-          (m) => mov.MaterialItem(
-            id: m.id,
-            nombre: m.nombre,
-            unidad: m.unidad,
-            cantidad: m.cantidad,
-            stockMinimo: m.stockMinimo,
-          ),
-        )
-        .toList();
-  }
-
-  Future<void> _ajustarStock(String materialId, double delta) async {
-    final db = await DBHelper.instance.database;
-    final res = await db.query(
-      'materiales',
-      where: 'id = ?',
-      whereArgs: [materialId],
-    );
-
-    if (res.isEmpty) {
-      throw StateError('No se encontró el material $materialId.');
-    }
-
-    final cantidadActual = (res.first['cantidad'] as num?)?.toDouble() ?? 0;
-    final nuevaCantidad = cantidadActual + delta;
-
-    final filasActualizadas = await db.update(
-      'materiales',
-      {'cantidad': nuevaCantidad},
-      where: 'id = ?',
-      whereArgs: [materialId],
-    );
-    if (filasActualizadas != 1) {
-      throw StateError(
-        'No se pudo actualizar el stock del material $materialId.',
-      );
-    }
-  }
 
   void _mostrarAlerta(String mensaje) {
     showDialog(

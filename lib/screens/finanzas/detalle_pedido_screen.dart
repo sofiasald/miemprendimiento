@@ -1,10 +1,10 @@
-//Conecta la acción del botón rosado inferior con la persistencia: al presionar "Marcar como Entregado", se da de alta la venta en la base de datos, se actualiza el estado del pedido y se recalculan los balances
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pedido.dart';
 import '../../models/venta.dart';
 import '../../providers/finanzas_provider.dart';
+import '../../providers/inventario_provider.dart';
 
 /// Pantalla completa de Detalle de Pedido.
 /// Gestiona reactivamente los 3 estados operativos (Pendiente, Entregado, Cancelado)
@@ -31,6 +31,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
   // ---------------------------------------------------------------------------
   Future<void> _marcarComoEntregado() async {
     final provider = context.read<FinanzasProvider>();
+    final inv = context.read<InventarioProvider>();
 
     final confirmacion = await showDialog<bool>(
       context: context,
@@ -58,7 +59,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              'Confirmar Entrega',
+              'Confirmar entrega',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -71,16 +72,27 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     if (confirmacion != true) return;
 
-    // 1. Registrar la Venta correspondiente
+    // 1. Descontar stock de insumos en unidades enteras según la cantidad del pedido
+    await inv.descontarStockPorVentaOPedido(
+      productoId: _pedidoActual.productoId,
+      comboId: _pedidoActual.comboId,
+      nombreItem: _pedidoActual.nombreItem,
+      varianteNombre: _pedidoActual.variante,
+      unidades: _pedidoActual.cantidad,
+    );
+
+    // 2. Registrar la venta correspondiente
     final nuevaVenta = Venta(
       id: 'venta-${DateTime.now().millisecondsSinceEpoch}',
+      productoId: _pedidoActual.productoId,
+      comboId: _pedidoActual.comboId,
       nombreItem: _pedidoActual.nombreItem,
       monto: _pedidoActual.monto,
       fecha: DateTime.now().toIso8601String(),
     );
     await provider.agregarVenta(nuevaVenta);
 
-    // 2. Actualizar el pedido sin borrarlo (cambia a entregado con fecha real)
+    // 3. Actualizar el pedido sin borrarlo (cambia a entregado con fecha real)
     setState(() {
       _pedidoActual.estado = 'entregado';
       _pedidoActual.fechaEntregaReal = DateTime.now();
@@ -91,7 +103,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          '¡Pedido entregado con éxito! Venta registrada en el balance.',
+          '¡Pedido entregado con éxito! Venta registrada y stock descontado.',
         ),
         backgroundColor: Color(0xFFE91E63),
       ),
@@ -124,7 +136,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
-              'Sí, Cancelar Pedido',
+              'Sí, cancelar pedido',
               style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
             ),
           ),
@@ -261,7 +273,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: const Text(
-                  'Guardar Cambios',
+                  'Guardar cambios',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,

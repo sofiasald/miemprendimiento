@@ -49,14 +49,14 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _BotonAccion(
-                    texto: 'Nueva Venta',
+                    texto: 'Nueva venta',
                     colorFondo: const Color(0xFFE23D80),
                     colorTexto: Colors.white,
                     onTap: () => _irARegistrar(context, TipoMovimiento.venta),
                   ),
                   const SizedBox(height: 14),
                   _BotonAccion(
-                    texto: 'Nuevo Pedido',
+                    texto: 'Nuevo pedido',
                     colorFondo: const Color(0xFFFFC6E5),
                     colorTexto: const Color(0xFFE23D80),
                     onTap: () => _irARegistrar(context, TipoMovimiento.pedido),
@@ -71,11 +71,11 @@ class HomeScreen extends StatelessWidget {
   }
 
   /// Abre Finanzas directamente en la pestaña "Registrar", con el tipo
-  /// de movimiento (Venta o Pedido) ya seleccionado.
+  /// de movimiento (venta o pedido) ya seleccionado.
   void _irARegistrar(BuildContext context, TipoMovimiento tipo) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const FinanzasScreen()),
+      MaterialPageRoute(builder: (_) => FinanzasScreen(tipoInicial: tipo)),
     );
   }
 }
