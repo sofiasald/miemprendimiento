@@ -15,11 +15,10 @@ class TipoMovimientoSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F0F0),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFEBEBEB),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
@@ -36,29 +35,20 @@ class TipoMovimientoSelector extends StatelessWidget {
     return Expanded(
       child: GestureDetector(
         onTap: () => onChanged(tipo),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: activo ? const Color(0xFFE85E98) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: activo
-                ? [
-                    const BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(4, 0),
-                    ),
-                  ]
-                : null,
+            color: activo ? const Color(0xFFEC6294) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: activo ? Colors.white : const Color(0xFF757575),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: activo ? Colors.white : Colors.grey[600],
+                fontWeight: activo ? FontWeight.bold : FontWeight.normal,
+                fontSize: 14,
+              ),
             ),
           ),
         ),

@@ -109,9 +109,12 @@ class DBHelper {
         id TEXT PRIMARY KEY,
         productoId TEXT,
         comboId TEXT,
+        pedidoId TEXT,
+        cliente TEXT,
         nombreItem TEXT,
         monto REAL NOT NULL,
         fecha TEXT NOT NULL,
+        tipo TEXT DEFAULT 'directa',
         visible INTEGER DEFAULT 1
       )
     ''');
@@ -183,6 +186,9 @@ class DBHelper {
 
     // Ventas
     await _agregarColumnaSiNoExiste(db, 'ventas', 'nombreItem', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'tipo', 'TEXT DEFAULT "directa"');
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'pedidoId', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'cliente', 'TEXT');
 
     // Pedidos
     await _agregarColumnaSiNoExiste(db, 'pedidos', 'nombreItem', 'TEXT');

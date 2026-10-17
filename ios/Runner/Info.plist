@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Atelier requiere autenticación biométrica para proteger el acceso a tu cuenta.</string>
 </dict>
 </plist>

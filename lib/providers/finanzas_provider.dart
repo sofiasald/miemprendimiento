@@ -7,6 +7,7 @@ import '../models/pedido.dart';
 import '../models/material_consumo.dart';
 import '../models/material.dart';
 import '../models/variante.dart';
+import 'inventario_provider.dart';
 
 class FinanzasProvider extends ChangeNotifier {
   List<Venta> ventas = [];
@@ -223,6 +224,40 @@ class FinanzasProvider extends ChangeNotifier {
   }
 
   Future<void> guardarVenta(Venta nuevaVenta) => agregarVenta(nuevaVenta);
+
+  /// Marca un pedido como entregado, descuenta insumos y registra la venta correspondiente con origen 'pedido'.
+  Future<void> entregarPedido({
+    required Pedido pedido,
+    required InventarioProvider inventarioProvider,
+  }) async {
+    // 1. Descontar stock de insumos según la cantidad del pedido
+    await inventarioProvider.descontarStockPorVentaOPedido(
+      productoId: pedido.productoId,
+      comboId: pedido.comboId,
+      nombreItem: pedido.nombreItem,
+      varianteNombre: pedido.variante,
+      unidades: pedido.cantidad,
+    );
+
+    // 2. Registrar la venta con origen 'pedido'
+    final nuevaVenta = Venta(
+      id: 'venta-${DateTime.now().millisecondsSinceEpoch}',
+      productoId: pedido.productoId,
+      comboId: pedido.comboId,
+      pedidoId: pedido.id,
+      cliente: pedido.cliente,
+      nombreItem: pedido.nombreItem,
+      monto: pedido.monto,
+      fecha: DateTime.now().toIso8601String(),
+      tipo: 'pedido',
+    );
+    await agregarVenta(nuevaVenta);
+
+    // 3. Actualizar estado y fecha de entrega real del pedido
+    pedido.estado = 'entregado';
+    pedido.fechaEntregaReal = DateTime.now();
+    await actualizarPedido(pedido);
+  }
 
   /// Elimina un pedido completado por su identificador único.
   Future<void> eliminarPedido(String id) async {

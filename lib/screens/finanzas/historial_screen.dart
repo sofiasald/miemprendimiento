@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/finanzas_provider.dart';
+import '../../providers/inventario_provider.dart';
 import '../../models/pedido.dart';
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
@@ -198,6 +199,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
     // 1. Procesar Pedidos Pendientes
     if (_filtroActivo == 'Todo' || _filtroActivo == 'Pedidos') {
       for (final pedido in finanzas.pedidos) {
+        // Los pedidos entregados desaparecen de la lista de pedidos
+        if (pedido.estado.toLowerCase() == 'entregado') continue;
+
         if (_terminoBusqueda.isEmpty ||
             pedido.cliente.toLowerCase().contains(_terminoBusqueda) ||
             pedido.nombreItem.toLowerCase().contains(_terminoBusqueda)) {
@@ -217,9 +221,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
     // 2. Procesar Ventas
     if (_filtroActivo == 'Todo' || _filtroActivo == 'Ventas') {
       for (final venta in finanzas.ventas) {
-        final nombreVenta = venta.nombreItem ?? 'Venta Directa';
+        final esPedido = venta.tipo == 'pedido';
+        final nombreVenta = venta.nombreItem ?? (esPedido ? 'Pedido' : 'Venta directa');
+        final cliente = venta.cliente ?? '';
         if (_terminoBusqueda.isEmpty ||
-            nombreVenta.toLowerCase().contains(_terminoBusqueda)) {
+            nombreVenta.toLowerCase().contains(_terminoBusqueda) ||
+            cliente.toLowerCase().contains(_terminoBusqueda) ||
+            (esPedido && 'pedido'.contains(_terminoBusqueda)) ||
+            (!esPedido && 'venta directa'.contains(_terminoBusqueda))) {
           items.add(
             _ItemHistorial(
               fechaReferencia: _parsearFecha(venta.fecha),
@@ -290,6 +299,66 @@ class _TarjetaPedido extends StatelessWidget {
   final Pedido pedido;
   const _TarjetaPedido({required this.pedido});
 
+  Future<void> _confirmarEntrega(BuildContext context) async {
+    final provider = context.read<FinanzasProvider>();
+    final inv = context.read<InventarioProvider>();
+
+    final confirmacion = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          '¿Confirmar entrega?',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        content: Text(
+          'El pedido de ${pedido.cliente} pasará a la lista de ventas, se registrará el ingreso por \$${pedido.monto.toInt()} y se descontará el stock de insumos.',
+          style: const TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE91E63),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Confirmar entrega',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmacion != true) return;
+
+    await provider.entregarPedido(
+      pedido: pedido,
+      inventarioProvider: inv,
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '¡Pedido entregado con éxito! Se movió a la lista de ventas.',
+          ),
+          backgroundColor: Color(0xFFE91E63),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -331,7 +400,7 @@ class _TarjetaPedido extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'PEDIDO   •   ${pedido.cliente}',
+                      'Pedido   •   ${pedido.cliente}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -370,29 +439,32 @@ class _TarjetaPedido extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF48FB1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'Marcar Entregado',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () => _confirmarEntrega(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF48FB1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check, size: 14, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Marcar como entregado',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const Icon(
@@ -410,13 +482,14 @@ class _TarjetaPedido extends StatelessWidget {
 }
 
 // COMPONENTE: Tarjeta Venta
-// COMPONENTE: Tarjeta Venta
 class _TarjetaVenta extends StatelessWidget {
   final Venta venta;
   const _TarjetaVenta({required this.venta});
 
   @override
   Widget build(BuildContext context) {
+    final bool esPedido = venta.tipo == 'pedido';
+
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () {
@@ -446,8 +519,8 @@ class _TarjetaVenta extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.receipt_long_outlined,
+                Icon(
+                  esPedido ? Icons.assignment_turned_in_outlined : Icons.receipt_long_outlined,
                   color: Colors.black87,
                   size: 20,
                 ),
@@ -456,22 +529,22 @@ class _TarjetaVenta extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'VENTA',
+                      'Venta',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                       ),
                     ),
                     Text(
-                      venta.nombreItem ?? 'Venta Directa',
+                      venta.nombreItem ?? (esPedido ? 'Pedido' : 'Venta directa'),
                       style: const TextStyle(
                         color: Colors.black54,
                         fontSize: 12,
                       ),
                     ),
-                    const Text(
-                      'Venta Directa',
-                      style: TextStyle(color: Colors.black45, fontSize: 11),
+                    Text(
+                      esPedido ? 'Pedido' : 'Venta directa',
+                      style: const TextStyle(color: Colors.black45, fontSize: 11),
                     ),
                   ],
                 ),

@@ -15,9 +15,10 @@ class DetalleMovimientoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool esVenta = venta != null;
+    final bool esPedido = esVenta && venta!.tipo == 'pedido';
     final String titulo = esVenta
-    ? (venta!.nombreItem ?? 'Venta Directa')
-    : (gasto!.materialNombre ?? 'Compra Insumo');
+        ? (venta!.nombreItem ?? (esPedido ? 'Pedido' : 'Venta directa'))
+        : (gasto!.materialNombre ?? 'Compra insumo');
     final double monto = esVenta ? venta!.monto : gasto!.monto;
     final String fecha = esVenta ? venta!.fecha : gasto!.fecha;
 
@@ -42,12 +43,14 @@ class DetalleMovimientoScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    esVenta ? 'VENTA REGISTRADA' : 'GASTO DE INSUMO',
+                    esVenta
+                        ? (esPedido ? 'Pedido entregado' : 'Venta registrada')
+                        : 'Gasto de insumo',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
-                      letterSpacing: 1.5,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
@@ -135,7 +138,7 @@ class DetalleMovimientoScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          esVenta ? 'VENTA' : 'GASTO',
+                          esVenta ? (esPedido ? 'Pedido' : 'Venta') : 'Gasto',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -153,11 +156,15 @@ class DetalleMovimientoScreen extends StatelessWidget {
                   Text(titulo, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const Divider(height: 24),
                   const Text(
-                    'DETALLES REGISTRADOS',
+                    'Detalles registrados',
                     style: TextStyle(color: Colors.black45, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text('• Concepto: $titulo', style: const TextStyle(fontSize: 13)),
+                  if (esVenta)
+                    Text('• Origen: ${esPedido ? "Pedido" : "Venta directa"}', style: const TextStyle(fontSize: 13)),
+                  if (esVenta && venta!.cliente != null && venta!.cliente!.isNotEmpty)
+                    Text('• Cliente: ${venta!.cliente}', style: const TextStyle(fontSize: 13)),
                   Text('• Fecha: $fecha', style: const TextStyle(fontSize: 13)),
                 ],
               ),

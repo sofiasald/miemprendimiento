@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pedido.dart';
-import '../../models/venta.dart';
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
 
@@ -72,32 +71,14 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     if (confirmacion != true) return;
 
-    // 1. Descontar stock de insumos en unidades enteras según la cantidad del pedido
-    await inv.descontarStockPorVentaOPedido(
-      productoId: _pedidoActual.productoId,
-      comboId: _pedidoActual.comboId,
-      nombreItem: _pedidoActual.nombreItem,
-      varianteNombre: _pedidoActual.variante,
-      unidades: _pedidoActual.cantidad,
+    await provider.entregarPedido(
+      pedido: _pedidoActual,
+      inventarioProvider: inv,
     );
 
-    // 2. Registrar la venta correspondiente
-    final nuevaVenta = Venta(
-      id: 'venta-${DateTime.now().millisecondsSinceEpoch}',
-      productoId: _pedidoActual.productoId,
-      comboId: _pedidoActual.comboId,
-      nombreItem: _pedidoActual.nombreItem,
-      monto: _pedidoActual.monto,
-      fecha: DateTime.now().toIso8601String(),
-    );
-    await provider.agregarVenta(nuevaVenta);
-
-    // 3. Actualizar el pedido sin borrarlo (cambia a entregado con fecha real)
-    setState(() {
-      _pedidoActual.estado = 'entregado';
-      _pedidoActual.fechaEntregaReal = DateTime.now();
-    });
-    await provider.actualizarPedido(_pedidoActual);
+    if (mounted) {
+      setState(() {});
+    }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
