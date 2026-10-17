@@ -1,4 +1,5 @@
 //Este componente calcula las métricas reales del negocio desde SQLite agrupadas por mes y año. Si no existen registros en el mes seleccionado, la pantalla entra de forma nativa en el estado vacío
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/finanzas_provider.dart';
@@ -34,7 +35,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
     _mesSeleccionado = ahora.month;
     _anioSeleccionado = ahora.year;
 
-    // Genera automáticamente los años [año actual - 2, año actual - 1, año actual]
+    // Genera automáticamente los años [año actual - 3, año actual - 2, año actual - 1, año actual]
     _aniosDisponibles = List.generate(4, (index) => ahora.year - 3 + index);
   }
 
@@ -58,7 +59,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
   }
 
   /// --------------------------------------------------------------------------
-  /// MODAL: Rueda de selección interactiva de Mes y Año (Figma Atelier)
+  /// MODAL: Rueda de selección interactiva de Mes y Año con resaltado visual
   /// --------------------------------------------------------------------------
   void _mostrarRuedaMesAno() {
     int mesTemporal = _mesSeleccionado;
@@ -72,122 +73,206 @@ class _ReporteScreenState extends State<ReporteScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Tirador superior gris
-            Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Tirador superior gris
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            // Encabezado y botón cerrar 'X'
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Elegí mes y año',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 22, color: Colors.black54),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Ruedas de selección cilíndrica
-            SizedBox(
-              height: 150,
-              child: Row(
+              // Encabezado y botón cerrar 'X'
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Columna 1: Meses
+                  const Text(
+                    'Elegí mes y año',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 22, color: Colors.black54),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Indicador dinámico del período seleccionado
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFCE4EC),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, size: 15, color: Color(0xFFD81B60)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Período seleccionado: ${_meses[mesTemporal - 1]} $anioTemporal',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD81B60),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Etiquetas de las columnas
+              const Row(
+                children: [
                   Expanded(
-                    child: ListWheelScrollView.useDelegate(
-                      controller: controllerMes,
-                      itemExtent: 40,
-                      physics: const FixedExtentScrollPhysics(),
-                      onSelectedItemChanged: (index) => mesTemporal = index + 1,
-                      childDelegate: ListWheelChildBuilderDelegate(
-                        builder: (context, index) {
-                          if (index < 0 || index >= _meses.length) return null;
-                          return Center(
-                            child: Text(
-                              _meses[index],
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
-                            ),
-                          );
-                        },
-                        childCount: _meses.length,
+                    child: Center(
+                      child: Text(
+                        'Mes',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black45),
                       ),
                     ),
                   ),
-
-                  // Columna 2: Años
                   Expanded(
-                    child: ListWheelScrollView.useDelegate(
-                      controller: controllerAnio,
-                      itemExtent: 40,
-                      physics: const FixedExtentScrollPhysics(),
-                      onSelectedItemChanged: (index) => anioTemporal = _aniosDisponibles[index],
-                      childDelegate: ListWheelChildBuilderDelegate(
-                        builder: (context, index) {
-                          if (index < 0 || index >= _aniosDisponibles.length) return null;
-                          return Center(
-                            child: Text(
-                              _aniosDisponibles[index].toString(),
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
-                            ),
-                          );
-                        },
-                        childCount: _aniosDisponibles.length,
+                    child: Center(
+                      child: Text(
+                        'Año',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black45),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 6),
 
-            // Botón Confirmar
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE85E98),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _mesSeleccionado = mesTemporal;
-                    _anioSeleccionado = anioTemporal;
-                  });
-                  Navigator.pop(ctx);
-                },
-                child: const Text(
-                  'Confirmar',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              // Ruedas de selección cilíndrica con resaltado
+              SizedBox(
+                height: 160,
+                child: Row(
+                  children: [
+                    // Columna 1: Meses
+                    Expanded(
+                      child: CupertinoPicker(
+                        scrollController: controllerMes,
+                        itemExtent: 44,
+                        magnification: 1.15,
+                        useMagnifier: true,
+                        squeeze: 1.2,
+                        selectionOverlay: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFCE4EC).withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE85E98), width: 1.6),
+                          ),
+                        ),
+                        onSelectedItemChanged: (index) {
+                          setModalState(() {
+                            mesTemporal = index + 1;
+                          });
+                        },
+                        children: List.generate(_meses.length, (index) {
+                          final bool esSeleccionado = (index + 1) == mesTemporal;
+                          return Center(
+                            child: Text(
+                              _meses[index],
+                              style: TextStyle(
+                                fontSize: esSeleccionado ? 16 : 14,
+                                fontWeight: esSeleccionado ? FontWeight.w800 : FontWeight.w500,
+                                color: esSeleccionado ? const Color(0xFFC2185B) : Colors.black45,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
+                    // Columna 2: Años
+                    Expanded(
+                      child: CupertinoPicker(
+                        scrollController: controllerAnio,
+                        itemExtent: 44,
+                        magnification: 1.15,
+                        useMagnifier: true,
+                        squeeze: 1.2,
+                        selectionOverlay: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFCE4EC).withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE85E98), width: 1.6),
+                          ),
+                        ),
+                        onSelectedItemChanged: (index) {
+                          setModalState(() {
+                            anioTemporal = _aniosDisponibles[index];
+                          });
+                        },
+                        children: List.generate(_aniosDisponibles.length, (index) {
+                          final bool esSeleccionado = _aniosDisponibles[index] == anioTemporal;
+                          return Center(
+                            child: Text(
+                              _aniosDisponibles[index].toString(),
+                              style: TextStyle(
+                                fontSize: esSeleccionado ? 16 : 14,
+                                fontWeight: esSeleccionado ? FontWeight.w800 : FontWeight.w500,
+                                color: esSeleccionado ? const Color(0xFFC2185B) : Colors.black45,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 18),
+
+              // Botón Confirmar
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE85E98),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _mesSeleccionado = mesTemporal;
+                      _anioSeleccionado = anioTemporal;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text(
+                    'Confirmar',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      controllerMes.dispose();
+      controllerAnio.dispose();
+    });
   }
 
   @override
