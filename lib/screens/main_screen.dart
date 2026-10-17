@@ -17,12 +17,13 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0; // Por defecto abre el inicio (índice 0)
+  final GlobalKey<FinanzasScreenState> _finanzasKey = GlobalKey<FinanzasScreenState>();
 
-  final List<Widget> _pantallas = const [
-    HomeScreen(),
-    InventarioScreen(),
-    FinanzasScreen(),
-    BackupScreen(),
+  late final List<Widget> _pantallas = [
+    const HomeScreen(),
+    const InventarioScreen(),
+    FinanzasScreen(key: _finanzasKey),
+    const BackupScreen(),
   ];
 
   Future<bool> _confirmarSalida() async {
@@ -111,7 +112,16 @@ class _MainScreenState extends State<MainScreen> {
     final Color textColor = isSelected ? const Color(0xFFE23D80) : const Color(0xFF6B7280);
 
     return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        if (index == 2) {
+          if (_currentIndex == 2) {
+            _finanzasKey.currentState?.resetearAPedido(irARegistrar: true);
+          } else {
+            _finanzasKey.currentState?.resetearAPedido();
+          }
+        }
+        setState(() => _currentIndex = index);
+      },
       borderRadius: BorderRadius.circular(20),
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,

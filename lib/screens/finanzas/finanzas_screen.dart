@@ -23,10 +23,10 @@ class FinanzasScreen extends StatefulWidget {
   });
 
   @override
-  State<FinanzasScreen> createState() => _FinanzasScreenState();
+  State<FinanzasScreen> createState() => FinanzasScreenState();
 }
 
-class _FinanzasScreenState extends State<FinanzasScreen> {
+class FinanzasScreenState extends State<FinanzasScreen> {
   int _indiceActivo = 0;
   int _versionHistorial = 0;
   late mov.TipoMovimiento _tipo;
@@ -43,6 +43,24 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       inv.cargarCombos();
       final fin = context.read<FinanzasProvider>();
       fin.cargarTodo();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant FinanzasScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tipoInicial != oldWidget.tipoInicial) {
+      _tipo = widget.tipoInicial;
+    }
+  }
+
+  void resetearAPedido({bool irARegistrar = false}) {
+    if (!mounted) return;
+    setState(() {
+      _tipo = mov.TipoMovimiento.pedido;
+      if (irARegistrar) {
+        _indiceActivo = 0;
+      }
     });
   }
 
@@ -111,7 +129,14 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   Widget _pestanaSuperior(String titulo, int indice) {
     final seleccionado = _indiceActivo == indice;
     return GestureDetector(
-      onTap: () => setState(() => _indiceActivo = indice),
+      onTap: () {
+        setState(() {
+          _indiceActivo = indice;
+          if (indice == 0) {
+            _tipo = mov.TipoMovimiento.pedido;
+          }
+        });
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
         decoration: BoxDecoration(
@@ -176,6 +201,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
     switch (_tipo) {
       case mov.TipoMovimiento.venta:
         return VentaForm(
+          key: const ValueKey('form_venta'),
           productos: productos,
           combos: combos,
           materiales: materiales,
@@ -186,6 +212,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
       case mov.TipoMovimiento.gasto:
         return GastoForm(
+          key: const ValueKey('form_gasto'),
           materiales: materiales,
           variantesPorMaterial: variantesPorMaterial,
           onRegistrar: _registrarGasto,
@@ -193,6 +220,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
 
       case mov.TipoMovimiento.pedido:
         return PedidoForm(
+          key: const ValueKey('form_pedido'),
           productos: productos,
           combos: combos,
           onRegistrar: _registrarPedido,
@@ -237,6 +265,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       setState(() {
         _indiceActivo = 1;
         _versionHistorial++;
+        _tipo = mov.TipoMovimiento.pedido;
       });
     } catch (e, stack) {
       debugPrint('Error al registrar venta: $e\n$stack');
@@ -265,6 +294,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       setState(() {
         _indiceActivo = 1;
         _versionHistorial++;
+        _tipo = mov.TipoMovimiento.pedido;
       });
     } catch (e, stack) {
       debugPrint('Error al registrar gasto: $e\n$stack');
@@ -291,6 +321,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
       setState(() {
         _indiceActivo = 1;
         _versionHistorial++;
+        _tipo = mov.TipoMovimiento.pedido;
       });
     } catch (e, stack) {
       debugPrint('Error al registrar pedido: $e\n$stack');
