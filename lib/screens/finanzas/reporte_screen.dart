@@ -21,10 +21,6 @@ class _ReporteScreenState extends State<ReporteScreen> {
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  // Rango dinámico de años: desde 2 años atrás hasta el año corriente
-  late final List<int> _aniosDisponibles;
-
-  // Variables mutables (sin 'final') para que el setState de la rueda pueda cambiarlas
   late int _mesSeleccionado;
   late int _anioSeleccionado;
 
@@ -34,9 +30,35 @@ class _ReporteScreenState extends State<ReporteScreen> {
     final ahora = DateTime.now();
     _mesSeleccionado = ahora.month;
     _anioSeleccionado = ahora.year;
+  }
 
-    // Genera automáticamente los años [año actual - 3, año actual - 2, año actual - 1, año actual]
-    _aniosDisponibles = List.generate(4, (index) => ahora.year - 3 + index);
+  /// Calcula dinámicamente los años disponibles según las fechas reales registradas
+  List<int> _obtenerAniosDisponibles(FinanzasProvider finanzas) {
+    final anioActual = DateTime.now().year;
+    int anioMinimo = anioActual;
+
+    // Busca el año más antiguo registrado en ventas
+    for (final v in finanzas.ventas) {
+      final f = _obtenerFecha(v.fecha);
+      if (f.year < anioMinimo && f.year > 2000) {
+        anioMinimo = f.year;
+      }
+    }
+
+    // Busca el año más antiguo registrado en gastos
+    for (final g in finanzas.gastos) {
+      final f = _obtenerFecha(g.fecha);
+      if (f.year < anioMinimo && f.year > 2000) {
+        anioMinimo = f.year;
+      }
+    }
+
+    if (anioMinimo > anioActual) anioMinimo = anioActual;
+
+    // Genera una lista continua desde el año más antiguo hasta el actual
+    // Si la app es nueva o no hay registros, devuelve únicamente [anioActual]
+    final totalAnios = (anioActual - anioMinimo) + 1;
+    return List.generate(totalAnios, (index) => anioMinimo + index);
   }
 
   /// Formatea importes numéricos con punto de miles (Ej: 188800 -> 188.800).
@@ -58,16 +80,23 @@ class _ReporteScreenState extends State<ReporteScreen> {
     }
   }
 
-  /// --------------------------------------------------------------------------
-  /// MODAL: Rueda de selección interactiva de Mes y Año con resaltado visual
-  /// --------------------------------------------------------------------------
-  void _mostrarRuedaMesAno() {
+  // --------------------------------------------------------------------------
+  // MODAL: Rueda de selección interactiva de Mes y Año (Dinámica)
+  // --------------------------------------------------------------------------
+  void _mostrarRuedaMesAno(List<int> aniosDisponibles) {
     int mesTemporal = _mesSeleccionado;
     int anioTemporal = _anioSeleccionado;
 
+    // Asegura que el año temporal pertenezca a la lista de años disponibles
+    if (!aniosDisponibles.contains(anioTemporal)) {
+      anioTemporal = aniosDisponibles.last;
+    }
+
     final controllerMes = FixedExtentScrollController(initialItem: _mesSeleccionado - 1);
+    final initialAnioIndex = aniosDisponibles.indexOf(anioTemporal);
     final controllerAnio = FixedExtentScrollController(
-      initialItem: _aniosDisponibles.indexOf(_anioSeleccionado).clamp(0, _aniosDisponibles.length - 1),
+      initialItem: (initialAnioIndex >= 0 ? initialAnioIndex : aniosDisponibles.length - 1)
+          .clamp(0, aniosDisponibles.length - 1),
     );
 
     showModalBottomSheet(
@@ -164,7 +193,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 height: 160,
                 child: Row(
                   children: [
-                    // Columna 1: Meses
+                    // Columna 1: Meses (Siempre los 12 meses fijos)
                     Expanded(
                       child: CupertinoPicker(
                         scrollController: controllerMes,
@@ -201,7 +230,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                       ),
                     ),
 
-                    // Columna 2: Años
+                    // Columna 2: Años (Calculados dinámicamente)
                     Expanded(
                       child: CupertinoPicker(
                         scrollController: controllerAnio,
@@ -219,14 +248,14 @@ class _ReporteScreenState extends State<ReporteScreen> {
                         ),
                         onSelectedItemChanged: (index) {
                           setModalState(() {
-                            anioTemporal = _aniosDisponibles[index];
+                            anioTemporal = aniosDisponibles[index];
                           });
                         },
-                        children: List.generate(_aniosDisponibles.length, (index) {
-                          final bool esSeleccionado = _aniosDisponibles[index] == anioTemporal;
+                        children: List.generate(aniosDisponibles.length, (index) {
+                          final bool esSeleccionado = aniosDisponibles[index] == anioTemporal;
                           return Center(
                             child: Text(
-                              _aniosDisponibles[index].toString(),
+                              aniosDisponibles[index].toString(),
                               style: TextStyle(
                                 fontSize: esSeleccionado ? 16 : 14,
                                 fontWeight: esSeleccionado ? FontWeight.w800 : FontWeight.w500,
@@ -279,7 +308,15 @@ class _ReporteScreenState extends State<ReporteScreen> {
   Widget build(BuildContext context) {
     return Consumer<FinanzasProvider>(
       builder: (context, finanzas, child) {
-        // Filtrado dinámico por el mes y año que eligió la usuaria en la rueda
+        // Cálculo de años reales en función de las transacciones en SQLite
+        final aniosDisponibles = _obtenerAniosDisponibles(finanzas);
+
+        // Si el año seleccionado quedó fuera de la lista calculada, se ajusta al último
+        if (!aniosDisponibles.contains(_anioSeleccionado)) {
+          _anioSeleccionado = aniosDisponibles.last;
+        }
+
+        // Filtrado dinámico por el mes y año seleccionados
         final ventasMes = finanzas.ventas.where((v) {
           final f = _obtenerFecha(v.fecha);
           return f.month == _mesSeleccionado && f.year == _anioSeleccionado;
@@ -314,7 +351,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                 // SELECTOR CONECTADO: Al tocarlo abre la rueda interactiva
                 // -------------------------------------------------------------
                 GestureDetector(
-                  onTap: _mostrarRuedaMesAno,
+                  onTap: () => _mostrarRuedaMesAno(aniosDisponibles),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -388,7 +425,7 @@ class _ReporteScreenState extends State<ReporteScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('VENTA TOTALES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
+                            const Text('VENTAS TOTALES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
                             const SizedBox(height: 6),
                             Text(
                               esMesVacio ? '+\$ 0' : '+\$ ${formatearMonto(totalVentasMes)}',
