@@ -10,8 +10,7 @@ import '../../models/gasto.dart';
 import 'detalle_pedido_screen.dart';
 import 'detalle_movimiento_screen.dart';
 
-/// Clase auxiliar para ordenar transacciones heterogéneas (Venta, Gasto, Pedido)
-/// dentro de una misma lista cronológica.
+/// Clase auxiliar para ordenar transacciones heterogéneas dentro de la misma lista
 class _ItemHistorial {
   final DateTime fechaReferencia;
   final Widget widget;
@@ -19,9 +18,6 @@ class _ItemHistorial {
   _ItemHistorial({required this.fechaReferencia, required this.widget});
 }
 
-/// Pantalla definitiva de Historial de Finanzas.
-/// Consume datos reales desde FinanzasProvider y refleja en vivo cualquier
-/// alta, baja o cambio de estado proveniente de SQLite.
 class HistorialScreen extends StatefulWidget {
   const HistorialScreen({super.key});
 
@@ -30,21 +26,44 @@ class HistorialScreen extends StatefulWidget {
 }
 
 class _HistorialScreenState extends State<HistorialScreen> {
-  // Filtro activo de categoría: 'Todo', 'Ventas', 'Gastos' o 'Pedidos'
+  // ESTADO DE FILTROS Y CONTROLADORES
   String _filtroActivo = 'Todo';
-
-  // Controlador para el campo de búsqueda de movimientos
   final TextEditingController _controladorBusqueda = TextEditingController();
   String _terminoBusqueda = '';
 
+  // Lista en memoria de búsquedas recientes (máximo 5 elementos)
+  final List<String> _busquedasRecientes = [];
+
   @override
   void dispose() {
-    // Liberación del controlador de texto para evitar fugas de memoria
     _controladorBusqueda.dispose();
     super.dispose();
   }
 
-  /// Función utilitaria que da formato de moneda con punto de miles (Ej: 65000 -> 65.000).
+  // MÉTODOS AUXILIARES DE BÚSQUEDAS RECIENTES
+  /// Guarda un término de búsqueda al confirmar en el teclado (sin duplicados y máx 5)
+  void _guardarBusquedaReciente(String texto) {
+    final limpio = texto.trim();
+    if (limpio.isEmpty) return;
+
+    setState(() {
+      _busquedasRecientes.removeWhere((item) => item.toLowerCase() == limpio.toLowerCase());
+      _busquedasRecientes.insert(0, limpio); // Se agrega arriba de todo
+      if (_busquedasRecientes.length > 5) {
+        _busquedasRecientes.removeLast(); // Mantiene tope de 5
+      }
+    });
+  }
+
+  /// Limpia el campo de texto y restaura la vista completa
+  void _limpiarBusqueda() {
+    _controladorBusqueda.clear();
+    setState(() {
+      _terminoBusqueda = '';
+    });
+  }
+
+  // FORMATEADORES VISUALES
   static String formatearMonto(double monto) {
     final partes = monto.toInt().toString();
     return partes.replaceAllMapped(
@@ -53,26 +72,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
-  /// Convierte una fecha a formato legible de encabezado (Ej: "12 DE SEPTIEMBRE 2026").
   static String formatearFechaEncabezado(DateTime fecha) {
     const meses = [
-      'ENERO',
-      'FEBRERO',
-      'MARZO',
-      'ABRIL',
-      'MAYO',
-      'JUNIO',
-      'JULIO',
-      'AGOSTO',
-      'SEPTIEMBRE',
-      'OCTUBRE',
-      'NOVIEMBRE',
-      'DICIEMBRE',
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+      'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
     ];
     return '${fecha.day} DE ${meses[fecha.month - 1]} ${fecha.year}';
   }
 
-  /// Parsea cadenas de fecha ISO8601 o texto estándar a DateTime de forma segura contra nulos.
   DateTime _parsearFecha(String? fechaTexto) {
     if (fechaTexto == null || fechaTexto.isEmpty) return DateTime.now();
     try {
@@ -82,28 +89,33 @@ class _HistorialScreenState extends State<HistorialScreen> {
     }
   }
 
+  // CONSTRUCCIÓN DE LA PANTALLA PRINCIPAL
   @override
   Widget build(BuildContext context) {
-    // Consumer escucha los cambios del provider; cualquier operación en la base redibuja la lista.
     return Consumer<FinanzasProvider>(
       builder: (context, finanzas, child) {
-        // Construimos y ordenamos los movimientos reales
         final List<Widget> listaFinal = _construirListaUnificada(finanzas);
 
         return Scaffold(
           backgroundColor: const Color(0xFFFBFBFB),
           body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // BLOQUE 1: Input de búsqueda redondeado
+              // BLOQUE 1: BUSCADOR CON BOTÓN LIMPIAR ('X') Y GUARDADO AL ENVIAR
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
                 child: TextField(
                   controller: _controladorBusqueda,
-                  onChanged: (val) => setState(
-                    () => _terminoBusqueda = val.trim().toLowerCase(),
-                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _terminoBusqueda = val.trim().toLowerCase();
+                    });
+                  },
+                  onSubmitted: (val) {
+                    _guardarBusquedaReciente(val);
+                  },
                   decoration: InputDecoration(
-                    hintText: 'Buscar...',
+                    hintText: 'Buscar por producto o cliente...',
                     hintStyle: const TextStyle(
                       color: Color(0xFF9E9E9E),
                       fontSize: 14,
@@ -111,10 +123,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     prefixIcon: const Icon(
                       Icons.search,
                       color: Color(0xFF757575),
+                      size: 20,
                     ),
+                    // Icono de X para limpiar texto en un toque
+                    suffixIcon: _terminoBusqueda.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close, color: Color(0xFF757575), size: 18),
+                            onPressed: _limpiarBusqueda,
+                          )
+                        : null,
                     filled: true,
                     fillColor: const Color(0xFFF3F3F3),
-                    contentPadding: EdgeInsets.zero,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -123,13 +143,76 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 ),
               ),
 
-              // BLOQUE 2: Chips horizontales de filtrado por categoría
+              // BLOQUE 2: BÚSQUEDAS RECIENTES (SOLO SI EXISTEN Y NO SE ESTÁ ESCRIBIENDO)
+              if (_terminoBusqueda.isEmpty && _busquedasRecientes.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Recientes:',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF757575),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: _busquedasRecientes.map((termino) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: InputChip(
+                                  label: Text(
+                                    termino,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF212121),
+                                    ),
+                                  ),
+                                  backgroundColor: const Color(0xFFFFEBEE),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  side: BorderSide.none,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  // Al tocar el texto, busca
+                                  onPressed: () {
+                                    _controladorBusqueda.text = termino;
+                                    setState(() {
+                                      _terminoBusqueda = termino.toLowerCase();
+                                    });
+                                  },
+                                  // Al tocar la crucecita, borra solo este chip
+                                  deleteIcon: const Icon(Icons.close, size: 14, color: Color(0xFF757575)),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _busquedasRecientes.remove(termino);
+                                    });
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_sweep_outlined, size: 18, color: Color(0xFF9E9E9E)),
+                        tooltip: 'Limpiar recientes',
+                        onPressed: () => setState(() => _busquedasRecientes.clear()),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // BLOQUE 3: CHIPS DE CATEGORÍA (TODO, VENTAS, GASTOS, PEDIDOS)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 child: Row(
                   children: [
                     _chipFiltro('Todo'),
@@ -143,20 +226,49 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 ),
               ),
 
-              // BLOQUE 3: Lista de movimientos o Estado Vacío
+              // BLOQUE 4: LISTA DINÁMICA DE MOVIMIENTOS O ESTADO VACÍO
               Expanded(
                 child: listaFinal.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No hay movimientos registrados.',
-                          style: TextStyle(color: Colors.black45, fontSize: 14),
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _terminoBusqueda.isNotEmpty
+                                    ? Icons.search_off_rounded
+                                    : Icons.receipt_long_outlined,
+                                size: 48,
+                                color: Colors.black26,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _terminoBusqueda.isNotEmpty
+                                    ? 'No se encontraron resultados para "$_terminoBusqueda"'
+                                    : 'No hay movimientos registrados.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.black54, fontSize: 14),
+                              ),
+                              if (_terminoBusqueda.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                TextButton(
+                                  onPressed: _limpiarBusqueda,
+                                  child: const Text(
+                                    'Limpiar búsqueda',
+                                    style: TextStyle(
+                                      color: Color(0xFFF06292),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       )
                     : ListView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         children: listaFinal,
                       ),
               ),
@@ -167,7 +279,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
-  /// Construye cada botón de categoría horizontal.
+  // WIDGETS AUXILIARES Y FILTRADO
   Widget _chipFiltro(String etiqueta) {
     final bool seleccionado = _filtroActivo == etiqueta;
     return GestureDetector(
@@ -175,9 +287,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
         decoration: BoxDecoration(
-          color: seleccionado
-              ? const Color(0xFFF06292)
-              : const Color(0xFFEEEEEE),
+          color: seleccionado ? const Color(0xFFF06292) : const Color(0xFFEEEEEE),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -192,22 +302,22 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
-  /// Unifica y clasifica Ventas, Gastos y Pedidos respetando los filtros y agrupando por fecha.
   List<Widget> _construirListaUnificada(FinanzasProvider finanzas) {
     final List<_ItemHistorial> items = [];
 
-    // 1. Procesar Pedidos Pendientes
+    // 1. Procesar Pedidos
     if (_filtroActivo == 'Todo' || _filtroActivo == 'Pedidos') {
       for (final pedido in finanzas.pedidos) {
-        // Los pedidos entregados desaparecen de la lista de pedidos
-        if (pedido.estado.toLowerCase() == 'entregado') continue;
+        // En la pestaña "Todo" ocultamos los entregados porque ya aparecen en la sección de Ventas.
+        // Pero si la usuaria toca la pestaña "Pedidos", debe poder ver su historial completo.
+        if (_filtroActivo == 'Todo' && pedido.estado.toLowerCase() == 'entregado') continue;
 
         if (_terminoBusqueda.isEmpty ||
             pedido.cliente.toLowerCase().contains(_terminoBusqueda) ||
             pedido.nombreItem.toLowerCase().contains(_terminoBusqueda)) {
           items.add(
             _ItemHistorial(
-              fechaReferencia: pedido.fechaEntrega,
+              fechaReferencia: pedido.fechaEntregaReal ?? DateTime.now(),
               widget: Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _TarjetaPedido(pedido: pedido),
@@ -224,6 +334,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
         final esPedido = venta.tipo == 'pedido';
         final nombreVenta = venta.nombreItem ?? (esPedido ? 'Pedido' : 'Venta directa');
         final cliente = venta.cliente ?? '';
+
         if (_terminoBusqueda.isEmpty ||
             nombreVenta.toLowerCase().contains(_terminoBusqueda) ||
             cliente.toLowerCase().contains(_terminoBusqueda) ||
@@ -261,10 +372,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
       }
     }
 
-    // Ordenamiento descendente: las fechas más recientes aparecen primero
+    // Ordenamiento descendente (lo más nuevo arriba)
     items.sort((a, b) => b.fechaReferencia.compareTo(a.fechaReferencia));
 
-    // Inserción de títulos de fecha entre tarjetas
+    // Agrupación visual por encabezados de fecha
     final List<Widget> widgetsConEncabezados = [];
     String? ultimaFechaClave;
 
@@ -294,7 +405,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 }
 
-// COMPONENTE: Tarjeta Pedido con navegación al Detalle
+// COMPONENTES DE TARJETAS (PEDIDO, VENTA, GASTO)
 class _TarjetaPedido extends StatelessWidget {
   final Pedido pedido;
   const _TarjetaPedido({required this.pedido});
@@ -312,7 +423,7 @@ class _TarjetaPedido extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         content: Text(
-          'El pedido de ${pedido.cliente} pasará a la lista de ventas, se registrará el ingreso por \$${pedido.monto.toInt()} y se descontará el stock de insumos.',
+          'El pedido de ${pedido.cliente} pasará a la lista de ventas, se registrará el ingreso por \$${_HistorialScreenState.formatearMonto(pedido.monto)} y se descontará el stock de insumos.',
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -350,9 +461,7 @@ class _TarjetaPedido extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            '¡Pedido entregado con éxito! Se movió a la lista de ventas.',
-          ),
+          content: Text('¡Pedido entregado con éxito! Se movió a la lista de ventas.'),
           backgroundColor: Color(0xFFE91E63),
         ),
       );
@@ -388,36 +497,46 @@ class _TarjetaPedido extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 1. FILA SUPERIOR: Ícono, Título (con límite de espacio) y Precio
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.assignment_outlined,
-                      size: 18,
-                      color: Colors.black87,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Pedido   •   ${pedido.cliente}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                // Bloque izquierdo flexible (Ícono + Título + Cliente)
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.assignment_outlined, size: 18, color: Colors.black87),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Pedido   •   ${pedido.cliente.isNotEmpty ? pedido.cliente[0].toUpperCase() + pedido.cliente.substring(1) : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '\$${_HistorialScreenState.formatearMonto(pedido.monto)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                    ],
                   ),
+                ),
+                const SizedBox(width: 12),
+                
+                // Bloque derecho fijo (Precio y Flecha)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '\$${_HistorialScreenState.formatearMonto(pedido.monto)}',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, color: Colors.black87, size: 20),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
+
+            // 2. DETALLE INTERMEDIO: Producto y Fecha Pactada
             Padding(
               padding: const EdgeInsets.only(left: 26),
               child: Column(
@@ -425,54 +544,82 @@ class _TarjetaPedido extends StatelessWidget {
                 children: [
                   Text(
                     pedido.nombreItem,
-                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 2),
                   Text(
                     'Fecha pactada: ${pedido.fechaEntrega.day.toString().padLeft(2, '0')}/${pedido.fechaEntrega.month.toString().padLeft(2, '0')}/${pedido.fechaEntrega.year}',
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                    style: const TextStyle(color: Colors.black54, fontSize: 11),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => _confirmarEntrega(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF48FB1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check, size: 14, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          'Marcar como entregado',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+            const SizedBox(height: 10),
+
+            // 3. Estado: Botón de entrega si está pendiente, o badge gris/verde
+            Padding(
+              padding: const EdgeInsets.only(left: 26),
+              child: pedido.estado.toLowerCase() == 'cancelado'
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEEEEE),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Cancelado',
+                        style: TextStyle(
+                          color: Color(0xFF757575),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  : pedido.estado.toLowerCase() == 'entregado'
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Entregado',
+                            style: TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: () => _confirmarEntrega(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF48FB1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check, size: 14, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Marcar como entregado',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.black87,
-                  size: 22,
-                ),
-              ],
             ),
           ],
         ),
@@ -481,7 +628,6 @@ class _TarjetaPedido extends StatelessWidget {
   }
 }
 
-// COMPONENTE: Tarjeta Venta
 class _TarjetaVenta extends StatelessWidget {
   final Venta venta;
   const _TarjetaVenta({required this.venta});
@@ -493,6 +639,22 @@ class _TarjetaVenta extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () {
+        // Si la venta provino de un pedido, buscamos el pedido original y abrimos su ticket completo
+        if (esPedido && venta.pedidoId != null) {
+          final finanzas = context.read<FinanzasProvider>();
+          final coincidencias = finanzas.pedidos.where((p) => p.id == venta.pedidoId);
+          if (coincidencias.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetallePedidoScreen(pedido: coincidencias.first),
+              ),
+            );
+            return;
+          }
+        }
+
+        // Si es una venta directa tradicional, abre su comprobante normal
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -530,17 +692,11 @@ class _TarjetaVenta extends StatelessWidget {
                   children: [
                     const Text(
                       'Venta',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                     Text(
                       venta.nombreItem ?? (esPedido ? 'Pedido' : 'Venta directa'),
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
                     ),
                     Text(
                       esPedido ? 'Pedido' : 'Venta directa',
@@ -561,11 +717,7 @@ class _TarjetaVenta extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.black87,
-                  size: 22,
-                ),
+                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
               ],
             ),
           ],
@@ -575,8 +727,6 @@ class _TarjetaVenta extends StatelessWidget {
   }
 }
 
-// COMPONENTE: Tarjeta Gasto
-// COMPONENTE: Tarjeta Gasto
 class _TarjetaGasto extends StatelessWidget {
   final Gasto gasto;
   const _TarjetaGasto({required this.gasto});
@@ -612,28 +762,18 @@ class _TarjetaGasto extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.bookmark_border,
-                  color: Colors.black87,
-                  size: 20,
-                ),
+                const Icon(Icons.bookmark_border, color: Colors.black87, size: 20),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'GASTO',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
+                      'Gasto',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                     Text(
                       gasto.materialNombre ?? 'Compra Insumo',
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
                     ),
                     const Text(
                       'Compra Insumo',
@@ -654,11 +794,7 @@ class _TarjetaGasto extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.black87,
-                  size: 22,
-                ),
+                const Icon(Icons.chevron_right, color: Colors.black87, size: 22),
               ],
             ),
           ],

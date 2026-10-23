@@ -15,6 +15,7 @@ class Pedido {
   DateTime? fechaEntregaReal; // Cuándo se entregó efectivamente
   String observaciones;       // Señas, notas de diseño, entrega
   String estado;              // 'pendiente', 'entregado', 'cancelado'
+  String? fotoPath;
 
   Pedido({
     String? id, // Opcional: si viene de un formulario nuevo, se autogenera abajo
@@ -30,6 +31,7 @@ class Pedido {
     this.fechaEntregaReal,
     this.observaciones = '',
     this.estado = 'pendiente',
+    this.fotoPath,
   }) : id = id ?? 'ped_${DateTime.now().millisecondsSinceEpoch}';
 
   Map<String, dynamic> toMap() => {
@@ -46,6 +48,7 @@ class Pedido {
     'fechaEntregaReal': fechaEntregaReal?.toIso8601String(),
     'observaciones': observaciones,
     'estado': estado,
+    'fotoPath': fotoPath,
   };
 
   factory Pedido.fromMap(Map<String, dynamic> map) => Pedido(
@@ -68,5 +71,6 @@ class Pedido {
         : null,
     observaciones: map['observaciones'] ?? '',
     estado: map['estado'] ?? 'pendiente',
+    fotoPath: map['fotoPath'] as String?,
   );
 }

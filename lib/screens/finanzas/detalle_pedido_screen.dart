@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 
 import '../../models/pedido.dart';
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
+import '../../widgets/selector_foto.dart';
 
-/// Pantalla completa de Detalle de Pedido.
-/// Gestiona reactivamente los 3 estados operativos (Pendiente, Entregado, Cancelado)
-/// conforme a los lineamientos de Figma y persistencia local.
+/// Pantalla de Detalle de Pedido.
+/// Diseño homogéneo apilado (estilo Ualá/MP) con chips de variantes,
+/// tirador de arrastre táctil y botones fijos inferiores.
 class DetallePedidoScreen extends StatefulWidget {
   final Pedido pedido;
   const DetallePedidoScreen({super.key, required this.pedido});
@@ -18,6 +20,7 @@ class DetallePedidoScreen extends StatefulWidget {
 
 class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
   late Pedido _pedidoActual;
+  String? get _rutaImagen => _pedidoActual.fotoPath;
 
   @override
   void initState() {
@@ -25,9 +28,100 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     _pedidoActual = widget.pedido;
   }
 
-  // ---------------------------------------------------------------------------
-  // ACCIÓN 1: Marcar como Entregado (Genera Venta y preserva el Pedido histórico)
-  // ---------------------------------------------------------------------------
+  // --- FORMATEADORES AUXILIARES ---
+  static String _formatearMonto(double monto) {
+    final partes = monto.toInt().toString();
+    return partes.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+  }
+
+  static String _formatearFecha(DateTime dt) {
+    const meses = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
+    return '${dt.day.toString().padLeft(2, '0')} ${meses[dt.month - 1]} ${dt.year}';
+  }
+
+  // --- COMPONENTES APILADOS A ANCHO COMPLETO ---
+  Widget _bloqueDato(String etiqueta, String valor, {Color? colorValor, bool negrita = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            etiqueta.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9E9E9E),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 14,
+              color: colorValor ?? const Color(0xFF212121),
+              fontWeight: negrita ? FontWeight.w700 : FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construirChipsVariantes(String variantesTexto) {
+    final lista = variantesTexto.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'VARIANTES ELEGIDAS',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9E9E9E),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: lista.map((variante) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFCE4EC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFF8BBD0)),
+                ),
+                child: Text(
+                  variante,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFC2185B),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- ACCIONES DE ESTADO ---
   Future<void> _marcarComoEntregado() async {
     final provider = context.read<FinanzasProvider>();
     final inv = context.read<InventarioProvider>();
@@ -36,34 +130,20 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '¿Confirmar entrega?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        title: const Text('¿Confirmar entrega?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Text(
-          'El pedido de ${_pedidoActual.cliente} pasará a estado ENTREGADO, se registrará una venta por \$${_pedidoActual.monto.toInt()} y se descontará el stock de insumos.',
+          'El pedido pasará a ENTREGADO, se registrará la venta por \$${_formatearMonto(_pedidoActual.monto)} y se descontará el stock de insumos.',
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Volver'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Volver')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE91E63),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              backgroundColor: const Color(0xFFE85E98),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Confirmar entrega',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: const Text('Confirmar entrega', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -71,29 +151,19 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     if (confirmacion != true) return;
 
-    await provider.entregarPedido(
-      pedido: _pedidoActual,
-      inventarioProvider: inv,
-    );
+    await provider.entregarPedido(pedido: _pedidoActual, inventarioProvider: inv);
 
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() => _pedidoActual.estado = 'entregado');
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          '¡Pedido entregado con éxito! Venta registrada y stock descontado.',
-        ),
-        backgroundColor: Color(0xFFE91E63),
+        content: Text('¡Pedido entregado con éxito! Se registró la venta.'),
+        backgroundColor: Color(0xFFE85E98),
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // ACCIÓN 2: Cancelar Pedido (Pasa a CANCELADO, no genera venta ni toca stock)
-  // ---------------------------------------------------------------------------
   Future<void> _cancelarPedido() async {
     final provider = context.read<FinanzasProvider>();
 
@@ -101,25 +171,16 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '¿Cancelar este pedido?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        title: const Text('¿Cancelar este pedido?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: const Text(
-          'El encargo se archivará como CANCELADO. No se registrará ingreso de dinero ni se descontarán materiales.',
+          'El encargo pasará a estado CANCELADO. No se registrará ingreso ni se descontará stock.',
           style: TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No, volver'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, volver')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Sí, cancelar pedido',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Sí, cancelar pedido', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -127,47 +188,30 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     if (confirmar != true) return;
 
-    setState(() {
-      _pedidoActual.estado = 'cancelado';
-    });
+    setState(() => _pedidoActual.estado = 'cancelado');
     await provider.actualizarPedido(_pedidoActual);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('El pedido ha sido cancelado.'),
+        content: Text('El pedido ha sido archivado como cancelado.'),
         backgroundColor: Colors.black87,
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // ACCIÓN 3: Eliminar Pedido definitivamente de SQLite
-  // ---------------------------------------------------------------------------
   Future<void> _eliminarPedido() async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '¿Eliminar registro?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        content: const Text(
-          'Se eliminará este pedido del historial permanentemente. Esta acción no se puede deshacer.',
-          style: TextStyle(fontSize: 13),
-        ),
+        title: const Text('¿Eliminar registro?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: const Text('Se eliminará este pedido del sistema permanentemente.', style: TextStyle(fontSize: 13)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -181,88 +225,190 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     Navigator.pop(context);
   }
 
-  // ---------------------------------------------------------------------------
-  // ACCIÓN 4: Editar Pedido Pendiente (Solo permitido en estado PENDIENTE)
-  // ---------------------------------------------------------------------------
+  void _verImagenCompleta(BuildContext context, String path) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Image.file(File(path)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- MODAL DE EDICIÓN LIMPIO ---
   void _mostrarModalEdicion() {
     final clienteCtrl = TextEditingController(text: _pedidoActual.cliente);
-    final montoCtrl = TextEditingController(
-      text: _pedidoActual.monto.toInt().toString(),
-    );
+    final montoCtrl = TextEditingController(text: _pedidoActual.monto.toInt().toString());
     final obsCtrl = TextEditingController(text: _pedidoActual.observaciones);
+    DateTime fechaSeleccionada = _pedidoActual.fechaEntrega;
+    String? fotoSeleccionada = _pedidoActual.fotoPath;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Editar Pedido Pendiente',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: clienteCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Nombre del Cliente',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: montoCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Monto Total (\$)'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: obsCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Observaciones / Seña',
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE91E63),
-                ),
-                onPressed: () async {
-                  setState(() {
-                    _pedidoActual.cliente = clienteCtrl.text.trim();
-                    _pedidoActual.monto =
-                        double.tryParse(montoCtrl.text) ?? _pedidoActual.monto;
-                    _pedidoActual.observaciones = obsCtrl.text.trim();
-                  });
-                  await context.read<FinanzasProvider>().actualizarPedido(
-                    _pedidoActual,
-                  );
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: const Text(
-                  'Guardar cambios',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Editar Pedido Pendiente',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF212121)),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Color(0xFF757575)),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: clienteCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del Cliente',
+                  labelStyle: TextStyle(color: Color(0xFF757575), fontSize: 13),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE85E98), width: 2)),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: montoCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Monto Total (\$)',
+                        labelStyle: TextStyle(color: Color(0xFF757575), fontSize: 13),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE85E98), width: 2)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final nuevaFecha = await showDatePicker(
+                          context: context,
+                          initialDate: fechaSeleccionada,
+                          firstDate: DateTime(2025),
+                          lastDate: DateTime(2030),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(primary: Color(0xFFE85E98)),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (nuevaFecha != null) {
+                          setModalState(() => fechaSeleccionada = nuevaFecha);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        decoration: const BoxDecoration(
+                          border: Border(bottom: BorderSide(color: Color(0xFFE0E0E0))),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Entrega pactada', style: TextStyle(color: Color(0xFF757575), fontSize: 11)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatearFecha(fechaSeleccionada),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF212121)),
+                                ),
+                              ],
+                            ),
+                            const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFFE85E98)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: obsCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Observaciones / Notas',
+                  labelStyle: TextStyle(color: Color(0xFF757575), fontSize: 13),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE0E0E0))),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE85E98), width: 2)),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Selector para sumar o cambiar la foto desde el ticket
+              SelectorFoto(
+                rutaInicial: fotoSeleccionada,
+                onFotoCambiada: (ruta) => setModalState(() => fotoSeleccionada = ruta),
+              ),
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE85E98),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    setState(() {
+                      _pedidoActual.cliente = clienteCtrl.text.trim();
+                      _pedidoActual.monto = double.tryParse(montoCtrl.text) ?? _pedidoActual.monto;
+                      _pedidoActual.observaciones = obsCtrl.text.trim();
+                      _pedidoActual.fechaEntrega = fechaSeleccionada;
+                      _pedidoActual.fotoPath = fotoSeleccionada;
+                    });
+                    await context.read<FinanzasProvider>().actualizarPedido(_pedidoActual);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Guardar cambios', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -274,379 +420,287 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     final esEntregado = _pedidoActual.estado == 'entregado';
     final esCancelado = _pedidoActual.estado == 'cancelado';
 
-    final fechaPactadaStr =
-        '${_pedidoActual.fechaEntrega.day.toString().padLeft(2, '0')}/${_pedidoActual.fechaEntrega.month.toString().padLeft(2, '0')}/${_pedidoActual.fechaEntrega.year}';
-    final fechaRegistroStr = _pedidoActual.fechaRegistro != null
-        ? '${_pedidoActual.fechaRegistro!.day.toString().padLeft(2, '0')}/${_pedidoActual.fechaRegistro!.month.toString().padLeft(2, '0')}/${_pedidoActual.fechaRegistro!.year}'
-        : '12/08/2026';
-    final fechaEntregadoStr = _pedidoActual.fechaEntregaReal != null
-        ? '${_pedidoActual.fechaEntregaReal!.day.toString().padLeft(2, '0')}/${_pedidoActual.fechaEntregaReal!.month.toString().padLeft(2, '0')}/${_pedidoActual.fechaEntregaReal!.year}'
-        : fechaPactadaStr;
+    final Color badgeBg = esPendiente
+        ? const Color(0xFFE85E98)
+        : esEntregado
+            ? const Color(0xFFF48FB1)
+            : const Color(0xFFEEEEEE);
+    final Color badgeText = esCancelado ? const Color(0xFF757575) : Colors.white;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // -------------------------------------------------------------------
-          // HEADER CON FOTOGRAFÍA Y BOTONES DE ACCIÓN (LÁPIZ / TACHO)
-          // -------------------------------------------------------------------
-          Stack(
-            children: [
-              Container(
-                height: 240,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: esCancelado
-                        ? [const Color(0xFF90A4AE), const Color(0xFFCFD8DC)]
-                        : [const Color(0xFF42A5F5), const Color(0xFF90CAF9)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // 1. CABECERA DESLIZABLE (SLIVER APP BAR)
+          SliverAppBar(
+            expandedHeight: 280,
+            pinned: true,
+            stretch: true,
+            elevation: 0,
+            backgroundColor: const Color(0xFFE85E98),
+            leading: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: CircleAvatar(
+                backgroundColor: Colors.white.withValues(alpha: 0.9),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 20),
+                  onPressed: () => Navigator.pop(context),
                 ),
-                child: Center(
-                  child: Text(
-                    _pedidoActual.nombreItem.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: 2,
+              ),
+            ),
+            actions: [
+              if (esPendiente)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.white.withValues(alpha: 0.9),
+                    child: IconButton(
+                      icon: const Icon(Icons.edit_outlined, color: Colors.black87, size: 18),
+                      onPressed: _mostrarModalEdicion,
                     ),
                   ),
                 ),
-              ),
-
-              // Botón Atrás
-              Positioned(
-                top: 40,
-                left: 16,
+              Padding(
+                padding: const EdgeInsets.all(8.0),
                 child: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 18,
+                  backgroundColor: Colors.white.withValues(alpha: 0.9),
                   child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.black87,
-                      size: 20,
-                    ),
-                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.delete_outline, color: Colors.black87, size: 18),
+                    onPressed: _eliminarPedido,
                   ),
-                ),
-              ),
-
-              // Acciones en la cabecera (Lápiz y Tacho)
-              Positioned(
-                top: 40,
-                right: 16,
-                child: Row(
-                  children: [
-                    // El lápiz de edición SOLO se dibuja si el estado es PENDIENTE
-                    if (esPendiente) ...[
-                      CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 18,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            color: Colors.black87,
-                            size: 18,
-                          ),
-                          onPressed: _mostrarModalEdicion,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    // El tacho de basura siempre está disponible para depuración
-                    CircleAvatar(
-                      backgroundColor: Colors.white,
-                      radius: 18,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.black87,
-                          size: 18,
-                        ),
-                        onPressed: _eliminarPedido,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
+            flexibleSpace: FlexibleSpaceBar(
+              stretchModes: const [
+                StretchMode.zoomBackground,
+              ],
+              background: (_rutaImagen != null && File(_rutaImagen!).existsSync())
+                  ? GestureDetector(
+                      onTap: () => _verImagenCompleta(context, _rutaImagen!),
+                      child: Image.file(File(_rutaImagen!), fit: BoxFit.cover),
+                    )
+                : Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFFFF0F5), Color(0xFFF8BBD0)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          size: 48,
+                          color: Color(0xFFE85E98),
+                        ),
+                      ),
+                    ),
+                  ),
+            ),
           ),
 
-          // -------------------------------------------------------------------
-          // CUERPO DE LA TARJETA TÉCNICA
-          // -------------------------------------------------------------------
-          Expanded(
+          // 2. FICHA TÉCNICA PRINCIPAL (TICKET ELEVADO)
+          SliverToBoxAdapter(
             child: Container(
-              transform: Matrix4.translationValues(0, -20, 0),
-              decoration: const BoxDecoration(
+              transform: Matrix4.translationValues(0, -24, 0),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -6),
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Badge de Estado y Monto
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: esPendiente
-                                ? const Color(0xFFE91E63)
-                                : esEntregado
-                                ? const Color(0xFFF48FB1)
-                                : const Color(0xFFF8BBD0),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _pedidoActual.estado.toUpperCase(),
-                            style: TextStyle(
-                              color: esCancelado
-                                  ? const Color(0xFF880E4F)
-                                  : Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '\$${_pedidoActual.monto.toInt()}',
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tirador táctil central
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4.5,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0E0E0),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+
+                  // Badge de estado y Monto
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(16)),
+                        child: Text(
+                          _pedidoActual.estado.toUpperCase(),
                           style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 22,
-                            color: esCancelado
-                                ? Colors.black38
-                                : Colors.black87,
+                            color: badgeText,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 0.8,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _pedidoActual.cliente,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    const Divider(height: 24),
-
-                    // FICHA DEL ARTÍCULO
-                    const Text(
-                      'FICHA DEL ARTÍCULO',
-                      style: TextStyle(
-                        color: Colors.black45,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '• Artículo: ${_pedidoActual.nombreItem}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      '• Cantidad: ${_pedidoActual.cantidad} unidad(es)',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // VARIANTE Y DETALLES
-                    const Text(
-                      'VARIANTE Y DETALLES',
-                      style: TextStyle(
-                        color: Colors.black45,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '• Variante: ${_pedidoActual.variante}',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // FECHAS OPERATIVAS SEGÚN ESTADO
-                    if (esEntregado) ...[
-                      const Text(
-                        'FECHAS OPERATIVAS',
+                      Text(
+                        '\$${_formatearMonto(_pedidoActual.monto)}',
                         style: TextStyle(
-                          color: Colors.black45,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 26,
+                          color: esCancelado ? const Color(0xFF9E9E9E) : const Color(0xFF212121),
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Nombre del Cliente destacado
+                  Text(
+                    _pedidoActual.cliente.isNotEmpty
+                        ? _pedidoActual.cliente[0].toUpperCase() + _pedidoActual.cliente.substring(1)
+                        : 'Cliente',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF212121),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(color: Color(0xFFEEEEEE), thickness: 1),
+
+                  // Datos apilados a ancho completo
+                  _bloqueDato('Artículo encargado', _pedidoActual.nombreItem),
+                  _bloqueDato('Cantidad encargada', '${_pedidoActual.cantidad} unidad(es)'),
+
+                  // Variantes en pastillas / chips
+                  if (_pedidoActual.variante.isNotEmpty)
+                    _construirChipsVariantes(_pedidoActual.variante),
+
+                  // Fechas operativas apiladas
+                  if (esEntregado && _pedidoActual.fechaEntregaReal != null)
+                    _bloqueDato(
+                      'Entregado el',
+                      _formatearFecha(_pedidoActual.fechaEntregaReal!),
+                      colorValor: const Color(0xFF2E7D32),
+                      negrita: true,
+                    ),
+
+                  _bloqueDato(
+                    'Entrega pactada',
+                    _formatearFecha(_pedidoActual.fechaEntrega),
+                    colorValor: esPendiente ? const Color(0xFFE85E98) : null,
+                    negrita: esPendiente,
+                  ),
+
+                  _bloqueDato(
+                    'Encargo registrado',
+                    _pedidoActual.fechaRegistro != null
+                        ? _formatearFecha(_pedidoActual.fechaRegistro!)
+                        : 'Fecha no registrada',
+                  ),
+
+                  if (_pedidoActual.observaciones.isNotEmpty)
+                    _bloqueDato('Observaciones', _pedidoActual.observaciones),
+
+                  if (esCancelado) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9F9F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFEEEEEE)),
+                      ),
+                      child: const Row(
                         children: [
-                          const Icon(
-                            Icons.check,
-                            size: 16,
-                            color: Colors.black87,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Entregado el $fechaEntregadoStr',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                          Icon(Icons.info_outline, size: 18, color: Color(0xFF757575)),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Este encargo fue cancelado. No afectó el stock ni la caja.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF757575), fontStyle: FontStyle.italic),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.access_time,
-                            size: 16,
-                            color: Colors.black45,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Encargo registrado: $fechaRegistroStr',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      const Text(
-                        'ENTREGA PACTADA',
-                        style: TextStyle(
-                          color: Colors.black45,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        fechaPactadaStr,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        'Encargo registrado: $fechaRegistroStr',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 12),
-
-                    // OBSERVACIONES / ESTADO DE MATERIALES
-                    if (esCancelado) ...[
-                      const Text(
-                        'ESTADO DE MATERIALES',
-                        style: TextStyle(
-                          color: Colors.black45,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'No se descontó stock del inventario.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ] else if (_pedidoActual.observaciones.isNotEmpty) ...[
-                      const Text(
-                        'OBSERVACIONES',
-                        style: TextStyle(
-                          color: Colors.black45,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _pedidoActual.observaciones,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-
-                    const Spacer(),
-
-                    // BOTÓN INFERIOR: Solo visible si el pedido está PENDIENTE
-                    if (esPendiente) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE91E63),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _marcarComoEntregado,
-                          icon: const Icon(Icons.check, color: Colors.white),
-                          label: const Text(
-                            'Marcar como Entregado',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton(
-                          onPressed: _cancelarPedido,
-                          child: const Text(
-                            'Cancelar Pedido',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ),
         ],
       ),
+
+      // 3. BOTONES DE ACCIÓN ANCLADOS EN LA BASE (SOLO PENDIENTE)
+      bottomNavigationBar: esPendiente
+          ? Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE85E98),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: _marcarComoEntregado,
+                        icon: const Icon(Icons.check, color: Colors.white, size: 18),
+                        label: const Text(
+                          'Marcar como Entregado',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: _cancelarPedido,
+                      child: const Text(
+                        'Cancelar Pedido',
+                        style: TextStyle(
+                          color: Color(0xFFE53935),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

@@ -18,7 +18,7 @@ class DBHelper {
     final path = join(dbPath, fileName);
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: _onOpen,
@@ -112,10 +112,13 @@ class DBHelper {
         pedidoId TEXT,
         cliente TEXT,
         nombreItem TEXT,
+        variante TEXT,
+        cantidad INTEGER DEFAULT 1,
         monto REAL NOT NULL,
         fecha TEXT NOT NULL,
         tipo TEXT DEFAULT 'directa',
-        visible INTEGER DEFAULT 1
+        visible INTEGER DEFAULT 1,
+        fotoPath TEXT
       )
     ''');
 
@@ -141,6 +144,7 @@ class DBHelper {
         monto REAL NOT NULL,
         fecha TEXT NOT NULL,
         visible INTEGER DEFAULT 1,
+        fotoPath TEXT,
         FOREIGN KEY (materialId) REFERENCES materiales (id)
       )
     ''');
@@ -161,6 +165,7 @@ class DBHelper {
         observaciones TEXT,
         estado TEXT DEFAULT 'pendiente',
         visible INTEGER DEFAULT 1,
+        fotoPath TEXT,
         FOREIGN KEY (productoId) REFERENCES productos (id),
         FOREIGN KEY (comboId) REFERENCES combos (id)
       )
@@ -168,7 +173,7 @@ class DBHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
+    if (oldVersion < 3) {
       await _asegurarColumnas(db);
     }
   }
@@ -189,6 +194,8 @@ class DBHelper {
     await _agregarColumnaSiNoExiste(db, 'ventas', 'tipo', 'TEXT DEFAULT "directa"');
     await _agregarColumnaSiNoExiste(db, 'ventas', 'pedidoId', 'TEXT');
     await _agregarColumnaSiNoExiste(db, 'ventas', 'cliente', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'variante', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'cantidad', 'INTEGER DEFAULT 1');
 
     // Pedidos
     await _agregarColumnaSiNoExiste(db, 'pedidos', 'nombreItem', 'TEXT');
@@ -199,6 +206,11 @@ class DBHelper {
     await _agregarColumnaSiNoExiste(db, 'pedidos', 'fechaEntregaReal', 'TEXT');
     await _agregarColumnaSiNoExiste(db, 'pedidos', 'observaciones', 'TEXT');
     await _agregarColumnaSiNoExiste(db, 'pedidos', 'estado', 'TEXT DEFAULT "pendiente"');
+
+    // Fotos / Comprobantes adjuntos
+    await _agregarColumnaSiNoExiste(db, 'pedidos', 'fotoPath', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'ventas', 'fotoPath', 'TEXT');
+    await _agregarColumnaSiNoExiste(db, 'gastos', 'fotoPath', 'TEXT');
   }
 
   Future<void> _agregarColumnaSiNoExiste(

@@ -9,6 +9,7 @@ class Gasto {
   double cantidad; // Cantidad adquirida para sumar al stock A
   double monto; //Dinero pagado
   String fecha;
+  String? fotoPath;
   bool visible; // Borrado logico para SQLite
 
   Gasto({
@@ -20,6 +21,7 @@ class Gasto {
     this.cantidad = 0.0, // A
     required this.monto,
     String? fecha,
+    this.fotoPath,
     this.visible = true,
   }) : id = id ?? const Uuid().v4(),
   fecha = fecha ?? DateTime.now().toIso8601String(); // Fecha automática si la pantalla no la provee
@@ -34,6 +36,7 @@ class Gasto {
         'cantidad' : cantidad,
         'monto': monto,
         'fecha': fecha,
+        'fotoPath': fotoPath,
         'visible': visible ? 1 : 0,
       };
 
@@ -48,6 +51,7 @@ class Gasto {
       cantidad: (map['cantidad'] as num?)?.toDouble() ?? 0.0,
       monto: (map['monto'] as num).toDouble(),
       fecha: map['fecha'] as String,
+      fotoPath: map['fotoPath'] as String?,
       visible: (map['visible'] as int?) == 1,
     );
   }

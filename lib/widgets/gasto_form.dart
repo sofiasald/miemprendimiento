@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/movimiento_models.dart';
 import '../models/gasto.dart';
 import 'selector_articulo_acordeon.dart';
+import 'selector_foto.dart';
 
 class GastoForm extends StatefulWidget {
   final List<MaterialItem> materiales;
@@ -25,6 +26,8 @@ class _GastoFormState extends State<GastoForm> {
   String? _varianteId;
   final _cantidadCtrl = TextEditingController();
   final _montoCtrl = TextEditingController();
+
+  String? _fotoPath;
 
   bool _listaMaterialesAbierta = false;
   bool _listaVariantesAbierta = false;
@@ -228,8 +231,15 @@ class _GastoFormState extends State<GastoForm> {
               ),
             ],
           ),
-
           const SizedBox(height: 28),
+
+          const SizedBox(height: 18),
+          SelectorFoto(
+            rutaInicial: _fotoPath,
+            onFotoCambiada: (ruta) => setState(() => _fotoPath = ruta),
+          ),
+          const SizedBox(height: 28),
+
           Row(
             children: [
               Expanded(
@@ -547,6 +557,7 @@ class _GastoFormState extends State<GastoForm> {
           : null,
       cantidad: cantidad,
       monto: monto,
+      fotoPath: _fotoPath,
     );
 
     widget.onRegistrar(gasto);
@@ -557,6 +568,7 @@ class _GastoFormState extends State<GastoForm> {
       _montoCtrl.clear();
       _listaMaterialesAbierta = false;
       _listaVariantesAbierta = false;
+      _fotoPath = null;
     });
   }
 }
