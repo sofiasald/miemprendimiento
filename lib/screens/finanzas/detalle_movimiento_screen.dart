@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
@@ -7,13 +8,13 @@ import '../../providers/finanzas_provider.dart';
 
 /// Pantalla unificada de Detalle para Ventas y Gastos.
 /// Adopta la arquitectura SliverAppBar con tarjeta superior curvada,
-/// degradados suaves de respaldo y lectura integral de todos los campos de registro.
+/// tirador de arrastre y formato de datos apilado con chips de variantes.
 class DetalleMovimientoScreen extends StatelessWidget {
   final Venta? venta;
   final Gasto? gasto;
 
-  // Ruta opcional de fotografía del producto, combo o comprobante de gasto
-  final String? _rutaImagen = null;
+  // Ruta de fotografía del producto, combo o comprobante de gasto
+  String? get _rutaImagen => venta?.fotoPath ?? gasto?.fotoPath;
 
   const DetalleMovimientoScreen.venta({super.key, required this.venta}) : gasto = null;
   const DetalleMovimientoScreen.gasto({super.key, required this.gasto}) : venta = null;
@@ -42,7 +43,6 @@ class DetalleMovimientoScreen extends StatelessWidget {
   }
 
   // --- EXTRACCIÓN SEGURA DE METADATOS DE REGISTRO ---
-  /// Lee propiedades complementarias (variante, cantidad, unidad) de forma segura
   String? _leerPropiedad(dynamic objeto, List<String> claves) {
     if (objeto == null) return null;
     try {
@@ -58,32 +58,30 @@ class DetalleMovimientoScreen extends StatelessWidget {
     return null;
   }
 
-  // --- COMPONENTES VISUALES AUXILIARES ---
-  Widget _filaDato(String etiqueta, String valor, {bool destacar = false, Color? colorValor}) {
+  // --- COMPONENTES VISUALES APILADOS (ESTILO UALÁ / MP) ---
+  Widget _bloqueDato(String etiqueta, String valor, {Color? colorValor, bool negrita = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            etiqueta,
+            etiqueta.toUpperCase(),
             style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF757575),
-              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              color: Color(0xFF9E9E9E),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Text(
-              valor,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorValor ?? const Color(0xFF212121),
-                fontWeight: destacar ? FontWeight.w800 : FontWeight.w600,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 14,
+              color: colorValor ?? const Color(0xFF212121),
+              fontWeight: negrita ? FontWeight.w700 : FontWeight.w500,
+              height: 1.3,
             ),
           ),
         ],
@@ -91,17 +89,47 @@ class DetalleMovimientoScreen extends StatelessWidget {
     );
   }
 
-  Widget _encabezadoSeccion(String titulo) {
+  Widget _construirChipsVariantes(String variantesTexto) {
+    final lista = variantesTexto.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
     return Padding(
-      padding: const EdgeInsets.only(top: 14, bottom: 6),
-      child: Text(
-        titulo,
-        style: const TextStyle(
-          color: Color(0xFF9E9E9E),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'VARIANTES ELEGIDAS',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9E9E9E),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: lista.map((variante) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE0E0E0)),
+                ),
+                child: Text(
+                  variante,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF37474F),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -149,6 +177,30 @@ class DetalleMovimientoScreen extends StatelessWidget {
     }
   }
 
+  void _verImagenCompleta(BuildContext context, String path) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Image.file(File(path)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool esVenta = venta != null;
@@ -160,14 +212,13 @@ class DetalleMovimientoScreen extends StatelessWidget {
     final double monto = esVenta ? venta!.monto : gasto!.monto;
     final String fecha = esVenta ? venta!.fecha : gasto!.fecha;
 
-    // Lectura de campos de registro adicionales
+    // Lectura de campos complementarios
     final dynamic entidad = esVenta ? venta : gasto;
     final String? varianteDetectada = _leerPropiedad(entidad, ['variante', 'varianteNombre', 'variantes', 'detalleVariante']);
     final String? cantidadDetectada = _leerPropiedad(entidad, ['cantidad', 'unidades', 'cantidadComprada']);
     final String? unidadDetectada = _leerPropiedad(entidad, ['unidad', 'unidadMedida', 'referenciaUnidad']);
     final String? notasDetectadas = _leerPropiedad(entidad, ['observaciones', 'notas', 'descripcion']);
 
-    // Paleta cromática según dominio (Venta en verdes suaves, Gasto en rosado-rojizo suave)
     final Color colorAcento = esVenta ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
     final Color colorBadgeFondo = esVenta ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE);
     final List<Color> coloresGradiente = esVenta
@@ -177,12 +228,15 @@ class DetalleMovimientoScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics()
+        ),
         slivers: [
           // 1. CABECERA DESLIZABLE (SLIVER APP BAR)
           SliverAppBar(
             expandedHeight: 260,
             pinned: true,
+            stretch: true,
             elevation: 0,
             backgroundColor: colorAcento,
             leading: Padding(
@@ -208,8 +262,14 @@ class DetalleMovimientoScreen extends StatelessWidget {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: _rutaImagen != null
-                  ? Image.network(_rutaImagen, fit: BoxFit.cover)
+              stretchModes: const [
+                StretchMode.zoomBackground,
+              ],
+              background: (_rutaImagen != null && File(_rutaImagen!).existsSync())
+                  ? GestureDetector(
+                      onTap: () => _verImagenCompleta(context, _rutaImagen!),
+                      child: Image.file(File(_rutaImagen!), fit: BoxFit.cover),
+                    )
                   : Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -240,29 +300,44 @@ class DetalleMovimientoScreen extends StatelessWidget {
           // 2. CUERPO DE LA TARJETA COMPROBANTE
           SliverToBoxAdapter(
             child: Container(
-              transform: Matrix4.translationValues(0, -28, 0),
-              decoration: const BoxDecoration(
+              transform: Matrix4.translationValues(0, -24, 0),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -6),
+                  ),
+                ],
               ),
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Tirador táctil central
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4.5,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0E0E0),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+
                   // Badge y Cifra Monetaria
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: colorBadgeFondo,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                        decoration: BoxDecoration(color: colorBadgeFondo, borderRadius: BorderRadius.circular(16)),
                         child: Text(
-                          esVenta
-                              ? (esPedido ? 'PEDIDO ENTREGADO' : 'VENTA DIRECTA')
-                              : 'GASTO DE INSUMO',
+                          esVenta ? (esPedido ? 'PEDIDO ENTREGADO' : 'VENTA DIRECTA') : 'GASTO DE INSUMO',
                           style: TextStyle(
                             color: colorAcento,
                             fontWeight: FontWeight.w800,
@@ -284,7 +359,7 @@ class DetalleMovimientoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // Título principal (Artículo vendido o Material adquirido)
+                  // Nombre principal único (sin repetir abajo)
                   Text(
                     titulo.isNotEmpty ? titulo[0].toUpperCase() + titulo.substring(1) : titulo,
                     style: const TextStyle(
@@ -296,54 +371,47 @@ class DetalleMovimientoScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   const Divider(color: Color(0xFFEEEEEE), thickness: 1),
 
-                  // SECCIÓN: DETALLES DE LA OPERACIÓN
-                  _encabezadoSeccion('DETALLES DE LA OPERACIÓN'),
-                  _filaDato('Fecha y hora', _formatearFechaLegible(fecha)),
-                  _filaDato(
-                    'Tipo de movimiento',
+                  // Datos apilados a ancho completo
+                  _bloqueDato('Fecha y hora', _formatearFechaLegible(fecha)),
+                  _bloqueDato(
+                    'Tipo de operación',
                     esVenta
-                        ? (esPedido ? 'Entrega de pedido registrado' : 'Venta de mostrador / directa')
+                        ? (esPedido ? 'Entrega de pedido registrado' : 'Venta directa en mostrador')
                         : 'Compra y reposición de materiales',
                   ),
+
                   if (esVenta && venta!.cliente != null && venta!.cliente!.trim().isNotEmpty)
-                    _filaDato('Cliente', venta!.cliente!.trim(), destacar: true),
+                    _bloqueDato('Cliente', venta!.cliente!.trim(), negrita: true),
 
-                  // SECCIÓN ESPECÍFICA SEGÚN DOMINIO (VENTA O GASTO)
-                  if (esVenta) ...[
-                    _encabezadoSeccion('FICHA DEL ARTÍCULO VENDIDO'),
-                    _filaDato('Producto / Combo', titulo),
-                    if (varianteDetectada != null)
-                      _filaDato('Variante elegida', varianteDetectada),
-                    if (cantidadDetectada != null)
-                      _filaDato('Cantidad vendida', '$cantidadDetectada unidad(es)'),
-                  ] else ...[
-                    _encabezadoSeccion('FICHA DEL INSUMO COMPRADO'),
-                    _filaDato('Insumo', titulo),
-                    if (varianteDetectada != null)
-                      _filaDato('Variante de material', varianteDetectada),
-                    if (cantidadDetectada != null)
-                      _filaDato(
-                        'Cantidad adquirida',
-                        '$cantidadDetectada ${unidadDetectada ?? "unidades"}',
-                        destacar: true,
-                      ),
-                  ],
+                  // Pastillas de variantes si existen
+                  if (varianteDetectada != null && varianteDetectada.isNotEmpty)
+                    _construirChipsVariantes(varianteDetectada),
 
-                  // NOTAS ADICIONALES (SI EXISTIEREN)
-                  if (notasDetectadas != null) ...[
-                    _encabezadoSeccion('OBSERVACIONES'),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        notasDetectadas,
-                        style: const TextStyle(fontSize: 13, color: Color(0xFF424242), height: 1.4),
-                      ),
+                  if (cantidadDetectada != null) ...[
+                    Builder(
+                      builder: (context) {
+                        final cantNum = double.tryParse(cantidadDetectada);
+                        final cantTexto = cantNum != null && cantNum == cantNum.toInt()
+                            ? cantNum.toInt().toString()
+                            : cantidadDetectada;
+                        final unidadTexto = unidadDetectada ?? (esVenta ? 'unidad(es)' : 'unidades');
+                        return _bloqueDato(
+                          esVenta ? 'Cantidad vendida' : 'Cantidad adquirida',
+                          '$cantTexto $unidadTexto',
+                          negrita: true,
+                        );
+                      },
                     ),
                   ],
 
-                  const SizedBox(height: 20),
+                  if (notasDetectadas != null)
+                    _bloqueDato('Observaciones', notasDetectadas),
 
-                  // AVISO CONTABLE INFERIOR
+                  const SizedBox(height: 14),
+                  const Divider(color: Color(0xFFEEEEEE), thickness: 1),
+                  const SizedBox(height: 10),
+
+                  // Asiento contable inferior
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -363,7 +431,7 @@ class DetalleMovimientoScreen extends StatelessWidget {
                         Expanded(
                           child: Text(
                             esVenta
-                                ? 'Movimiento asentado en el balance y reporte anual.'
+                                ? 'Movimiento asentado en el balance y reporte general.'
                                 : 'Gasto computado en costos operativos del taller.',
                             style: const TextStyle(
                               fontSize: 12,

@@ -1,12 +1,11 @@
-//import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/finanzas_provider.dart';
-//import '../../providers/inventario_provider.dart';
+import '../../providers/inventario_provider.dart';
 import '../../services/backup_service.dart';
 
 /// Pantalla de Ajustes y Respaldo de Datos.
-/// Implementa la arquitectura offline mediante exportación e importación en formato JSON.
+/// Implementa la arquitectura offline mediante exportación e importación atómica en formato JSON.
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
 
@@ -15,40 +14,44 @@ class BackupScreen extends StatefulWidget {
 }
 
 class _BackupScreenState extends State<BackupScreen> {
-  // Registro dinámico de la última copia de seguridad (inicia sin copias previas)
   String _ultimaCopia = 'Sin copias registradas';
-
-  // Controla el estado de carga durante los procesos pesados de base de datos
   bool _estaProcesando = false;
 
-  // Constantes de color del sistema de diseño Atelier
   static const Color kRosaPrincipal = Color(0xFFE85E98);
   static const Color kFondoGris = Color(0xFFF8F9FA);
   static const Color kBordeGris = Color(0xFFE0E0E0);
   static const Color kTextoOscuro = Color(0xFF212121);
   static const Color kTextoGris = Color(0xFF757575);
 
-  /// LÓGICA DE EXPORTACIÓN (SQLite -> JSON -> Compartir)
+  /// LÓGICA DE EXPORTACIÓN (Controla cancelación real)
   Future<void> _ejecutarExportacion() async {
     setState(() => _estaProcesando = true);
 
     try {
-      await BackupService.exportarDatos();
-
-      final ahora = DateTime.now();
-      final horaFormateada =
-          '${ahora.day.toString().padLeft(2, '0')}/${ahora.month.toString().padLeft(2, '0')}/${ahora.year}, ${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}hs';
+      final completado = await BackupService.exportarDatos();
 
       if (!mounted) return;
-      setState(() {
-        _estaProcesando = false;
-        _ultimaCopia = horaFormateada;
-      });
+      setState(() => _estaProcesando = false);
 
-      _mostrarModalExito(
-        titulo: 'Exportación Exitosa',
-        descripcion: 'El archivo JSON se generó y guardó correctamente.',
-      );
+      if (completado) {
+        final ahora = DateTime.now();
+        final horaFormateada =
+            '${ahora.day.toString().padLeft(2, '0')}/${ahora.month.toString().padLeft(2, '0')}/${ahora.year}, ${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}hs';
+
+        setState(() => _ultimaCopia = horaFormateada);
+
+        _mostrarModalExito(
+          titulo: 'Exportación Exitosa',
+          descripcion: 'El archivo JSON se generó y guardó correctamente.',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Exportación cancelada.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _estaProcesando = false);
@@ -59,9 +62,8 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  /// LÓGICA DE IMPORTACIÓN (Seleccionar JSON -> Confirmar -> Restaurar)
+  /// LÓGICA DE IMPORTACIÓN (Con confirmación preventiva y recarga total)
   Future<void> _iniciarProcesoRestauracion() async {
-    // 1. Despliega el diálogo modal de advertencia preventiva de Figma
     final bool? confirmado = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -85,30 +87,23 @@ class _BackupScreenState extends State<BackupScreen> {
           ],
         ),
         content: const Text(
-          'Se reemplazarán todos los productos, materiales y finanzas actuales con los datos del archivo JSON seleccionado.',
+          'Se reemplazarán todos los productos, combos, materiales y finanzas actuales con los datos del archivo JSON seleccionado.',
           style: TextStyle(fontSize: 13, color: kTextoGris, height: 1.4),
         ),
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: kTextoGris, fontWeight: FontWeight.w600),
-            ),
+            child: const Text('Cancelar', style: TextStyle(color: kTextoGris, fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Restaurar',
-              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
-            ),
+            child: const Text('Restaurar', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
 
-    // 2. Si la usuaria confirma, se ejecuta la restauración real
     if (confirmado == true) {
       setState(() => _estaProcesando = true);
 
@@ -118,32 +113,46 @@ class _BackupScreenState extends State<BackupScreen> {
         if (!mounted) return;
         setState(() => _estaProcesando = false);
 
-        // Recarga los providers para actualizar inventario y balances en vivo
-        context.read<FinanzasProvider>().cargarVentas();
-        context.read<FinanzasProvider>().cargarGastos();
-        context.read<FinanzasProvider>().cargarPedidos();
+        // Si la usuaria no seleccionó archivo y presionó volver
+        if (total == -1) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se seleccionó ningún archivo de respaldo.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+
+        // Verificar que la pantalla siga activa
+        if (!mounted) return;
+
+        // Se capturan los providers antes de los awaits (elimina la advertencia)
+        final finanzas = context.read<FinanzasProvider>();
+        final inventario = context.read<InventarioProvider>();
+
+        await finanzas.cargarTodo();
+        await inventario.cargarTodo();
+
+        if (!mounted) return;
 
         _mostrarModalExito(
           titulo: 'Restaurado con éxito',
           descripcion: 'Se recuperaron $total registros en tu base de datos.',
         );
+        
       } catch (e) {
         if (!mounted) return;
         setState(() => _estaProcesando = false);
 
-        final mensaje = e.toString().replaceAll('Exception: ', '');
-        // Si la usuaria simplemente canceló la selección de archivo, no mostramos error
-        if (mensaje.contains('cancelada')) return;
-
         _mostrarModalError(
           titulo: 'Error al restaurar',
-          descripcion: mensaje,
+          descripcion: e.toString().replaceAll('Exception: ', ''),
         );
       }
     }
   }
 
-  /// Despliega el componente emergente de error con diseño armónico
   void _mostrarModalError({required String titulo, required String descripcion}) {
     showDialog(
       context: context,
@@ -158,7 +167,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 width: 72,
                 height: 72,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFFEBEE), // Rosa suave de advertencia
+                  color: Color(0xFFFFEBEE),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.error_outline_rounded, color: Color(0xFFE53935), size: 38),
@@ -167,11 +176,7 @@ class _BackupScreenState extends State<BackupScreen> {
               Text(
                 titulo,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: kTextoOscuro,
-                ),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kTextoOscuro),
               ),
               const SizedBox(height: 6),
               Text(
@@ -209,11 +214,7 @@ class _BackupScreenState extends State<BackupScreen> {
               Text(
                 titulo,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: kTextoOscuro,
-                ),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kTextoOscuro),
               ),
               const SizedBox(height: 6),
               Text(
@@ -230,7 +231,6 @@ class _BackupScreenState extends State<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Si la app está procesando, renderiza la pantalla de carga de Atelier
     if (_estaProcesando) {
       return Scaffold(
         backgroundColor: Colors.white,
@@ -284,7 +284,6 @@ class _BackupScreenState extends State<BackupScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // BANNER: Almacenamiento Local (100% Offline)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -299,11 +298,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 children: const [
                   Text(
                     'Almacenamiento Local (100% Offline)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: kTextoOscuro,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kTextoOscuro),
                   ),
                   SizedBox(height: 3),
                   Text(
@@ -314,63 +309,39 @@ class _BackupScreenState extends State<BackupScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Encabezado de sección
             const Text(
               'COPIA DE SEGURIDAD',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: kTextoGris,
-                letterSpacing: 0.6,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kTextoGris, letterSpacing: 0.6),
             ),
             const SizedBox(height: 12),
-
-            // TARJETA 1: Exportar Datos JSON
             _tarjetaAccion(
               icono: Icons.upload_file_outlined,
               titulo: 'Exportar Datos',
-              descripcion:
-                  'Guardar un archivo JSON con todo tu catálogo, finanzas e historial en tu teléfono',
+              descripcion: 'Guardar un archivo JSON con todo tu catálogo, finanzas e historial en tu teléfono',
               detalleInferior: 'Última copia: $_ultimaCopia',
               textoBoton: 'Exportar JSON',
               onTap: _ejecutarExportacion,
             ),
             const SizedBox(height: 18),
-
-            // TARJETA 2: Restaurar Datos JSON
             _tarjetaAccion(
               icono: Icons.settings_backup_restore_rounded,
               titulo: 'Restaurar Datos',
-              descripcion:
-                  'Carga un archivo JSON previo para recuperar toda tu información en este dispositivo.',
+              descripcion: 'Carga un archivo JSON previo para recuperar toda tu información en este dispositivo.',
               textoBoton: 'Seleccionar Archivo JSON',
               onTap: _iniciarProcesoRestauracion,
             ),
             const SizedBox(height: 36),
-
-            // PIE DE PÁGINA: Información institucional de la App
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
                   'INFORMACIÓN DE LA APP',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: kTextoGris,
-                    letterSpacing: 0.5,
-                  ),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextoGris, letterSpacing: 0.5),
                 ),
                 SizedBox(height: 4),
                 Text(
                   'Versión 1.0.0 (Offline SQLite) – Atelier',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextoOscuro,
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextoOscuro),
                 ),
               ],
             ),
@@ -381,7 +352,6 @@ class _BackupScreenState extends State<BackupScreen> {
     );
   }
 
-  /// Construye cada tarjeta de acción con borde definido, sombra y botón primario
   Widget _tarjetaAccion({
     required IconData icono,
     required String titulo,
@@ -396,7 +366,7 @@ class _BackupScreenState extends State<BackupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBordeGris.withValues(alpha:0.85)),
+        border: Border.all(color: kBordeGris.withValues(alpha: 0.85)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x06000000),
@@ -411,7 +381,6 @@ class _BackupScreenState extends State<BackupScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icono en caja oscura estilizada
               Container(
                 width: 34,
                 height: 34,
@@ -428,20 +397,12 @@ class _BackupScreenState extends State<BackupScreen> {
                   children: [
                     Text(
                       titulo,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: kTextoOscuro,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: kTextoOscuro),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       descripcion,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: kTextoGris,
-                        height: 1.35,
-                      ),
+                      style: const TextStyle(fontSize: 12, color: kTextoGris, height: 1.35),
                     ),
                   ],
                 ),
@@ -450,10 +411,7 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
           if (detalleInferior != null) ...[
             const SizedBox(height: 12),
-            Text(
-              detalleInferior,
-              style: const TextStyle(fontSize: 11, color: kTextoGris),
-            ),
+            Text(detalleInferior, style: const TextStyle(fontSize: 11, color: kTextoGris)),
           ],
           const SizedBox(height: 14),
           SizedBox(
@@ -462,19 +420,13 @@ class _BackupScreenState extends State<BackupScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: kRosaPrincipal,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 elevation: 0,
               ),
               onPressed: onTap,
               child: Text(
                 textoBoton,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
               ),
             ),
           ),

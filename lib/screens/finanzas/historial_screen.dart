@@ -305,17 +305,19 @@ class _HistorialScreenState extends State<HistorialScreen> {
   List<Widget> _construirListaUnificada(FinanzasProvider finanzas) {
     final List<_ItemHistorial> items = [];
 
-    // 1. Procesar Pedidos Pendientes
+    // 1. Procesar Pedidos
     if (_filtroActivo == 'Todo' || _filtroActivo == 'Pedidos') {
       for (final pedido in finanzas.pedidos) {
-        if (pedido.estado.toLowerCase() == 'entregado') continue;
+        // En la pestaña "Todo" ocultamos los entregados porque ya aparecen en la sección de Ventas.
+        // Pero si la usuaria toca la pestaña "Pedidos", debe poder ver su historial completo.
+        if (_filtroActivo == 'Todo' && pedido.estado.toLowerCase() == 'entregado') continue;
 
         if (_terminoBusqueda.isEmpty ||
             pedido.cliente.toLowerCase().contains(_terminoBusqueda) ||
             pedido.nombreItem.toLowerCase().contains(_terminoBusqueda)) {
           items.add(
             _ItemHistorial(
-              fechaReferencia: DateTime.now(),
+              fechaReferencia: pedido.fechaEntregaReal ?? DateTime.now(),
               widget: Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _TarjetaPedido(pedido: pedido),
@@ -558,7 +560,7 @@ class _TarjetaPedido extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // 3. ESTADO / BOTÓN: Botón de entrega (si está pendiente) o pastilla gris (si está cancelado)
+            // 3. Estado: Botón de entrega si está pendiente, o badge gris/verde
             Padding(
               padding: const EdgeInsets.only(left: 26),
               child: pedido.estado.toLowerCase() == 'cancelado'
@@ -577,31 +579,47 @@ class _TarjetaPedido extends StatelessWidget {
                         ),
                       ),
                     )
-                  : GestureDetector(
-                      onTap: () => _confirmarEntrega(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF48FB1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check, size: 14, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text(
-                              'Marcar como entregado',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
+                  : pedido.estado.toLowerCase() == 'entregado'
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Entregado',
+                            style: TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
                             ),
-                          ],
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: () => _confirmarEntrega(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF48FB1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check, size: 14, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Marcar como entregado',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
             ),
           ],
         ),
@@ -621,6 +639,22 @@ class _TarjetaVenta extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () {
+        // Si la venta provino de un pedido, buscamos el pedido original y abrimos su ticket completo
+        if (esPedido && venta.pedidoId != null) {
+          final finanzas = context.read<FinanzasProvider>();
+          final coincidencias = finanzas.pedidos.where((p) => p.id == venta.pedidoId);
+          if (coincidencias.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetallePedidoScreen(pedido: coincidencias.first),
+              ),
+            );
+            return;
+          }
+        }
+
+        // Si es una venta directa tradicional, abre su comprobante normal
         Navigator.push(
           context,
           MaterialPageRoute(

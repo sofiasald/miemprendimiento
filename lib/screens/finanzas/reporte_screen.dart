@@ -152,12 +152,17 @@ class _ReporteScreenState extends State<ReporteScreen> {
                   children: [
                     const Icon(Icons.calendar_today_rounded, size: 15, color: Color(0xFFD81B60)),
                     const SizedBox(width: 8),
-                    Text(
-                      'Período seleccionado: ${_meses[mesTemporal - 1]} $anioTemporal',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFD81B60),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Período: ${_meses[mesTemporal - 1]} $anioTemporal',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFD81B60),
+                          ),
+                        ),
                       ),
                     ),
                   ],

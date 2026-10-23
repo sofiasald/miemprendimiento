@@ -6,6 +6,7 @@ import '../models/venta.dart';
 import '../models/variante.dart';
 import '../providers/inventario_provider.dart';
 import 'selector_articulo_acordeon.dart';
+import 'selector_foto.dart';
 
 class VentaForm extends StatefulWidget {
   final List<Producto> productos;
@@ -34,6 +35,8 @@ class _VentaFormState extends State<VentaForm> {
   String? _idSeleccionado;
   String _nombreItem = '';
   double _precio = 0;
+
+  String? _fotoPath;
 
   bool _listaAbierta = false;
 
@@ -191,7 +194,13 @@ class _VentaFormState extends State<VentaForm> {
               ),
             ],
           ),
+          const SizedBox(height: 28),
 
+          const SizedBox(height: 18),
+          SelectorFoto(
+            rutaInicial: _fotoPath,
+            onFotoCambiada: (ruta) => setState(() => _fotoPath = ruta),
+          ),
           const SizedBox(height: 28),
 
           Row(
@@ -669,6 +678,33 @@ class _VentaFormState extends State<VentaForm> {
   }
 
   void _guardar() {
+    // 1. Reconstruir el texto legible de las variantes seleccionadas
+    // (Exactamente la misma lógica que ya hace PedidoForm)
+    final inv = context.read<InventarioProvider>();
+    final reqs = inv.obtenerVariantesRequeridas(
+      productoId: _tipoActivo == 'producto' ? _idSeleccionado : null,
+      comboId: _tipoActivo == 'combo' ? _idSeleccionado : null,
+    );
+
+    String? textoVariantes;
+    if (reqs.isNotEmpty) {
+      final partes = <String>[];
+      for (final req in reqs) {
+        final varId = _variantesElegidas[req.key];
+        if (varId != null) {
+          final coincidente = req.opciones.where((v) => v.id == varId);
+          if (coincidente.isNotEmpty) {
+            final sufijo = req.ocurrencia > 1 ? ' (${req.ocurrencia})' : '';
+            partes.add('${req.materialNombre}$sufijo: ${coincidente.first.nombre}');
+          }
+        }
+      }
+      if (partes.isNotEmpty) {
+        textoVariantes = partes.join(', ');
+      }
+    }
+
+    // 2. Mapa para descontar inventario de insumos
     final mapaVariantes = <String, String>{};
     _variantesElegidas.forEach((k, v) {
       if (v != null && v.isNotEmpty) {
@@ -676,15 +712,22 @@ class _VentaFormState extends State<VentaForm> {
       }
     });
 
+    // 3. Crear el objeto Venta guardando las variantes y la cantidad
     final venta = Venta(
       productoId: _tipoActivo == 'producto' ? _idSeleccionado : null,
       comboId: _tipoActivo == 'combo' ? _idSeleccionado : null,
       nombreItem: _nombreItem,
+      variante: textoVariantes, 
+      cantidad: 1,              
       monto: _precio,
       fecha: _fecha.toIso8601String(),
+      tipo: 'directa',
+      fotoPath: _fotoPath,
     );
 
     widget.onRegistrar(venta, mapaVariantes);
+
+    // 4. Limpiar formulario
     setState(() {
       _idSeleccionado = null;
       _nombreItem = '';
@@ -694,6 +737,7 @@ class _VentaFormState extends State<VentaForm> {
       _listasVariantesAbiertas.clear();
       _montoCtrl.clear();
       _fecha = DateTime.now();
+      _fotoPath = null;
     });
   }
 

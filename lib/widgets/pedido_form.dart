@@ -6,6 +6,7 @@ import '../models/pedido.dart';
 import '../models/variante.dart';
 import '../providers/inventario_provider.dart';
 import 'selector_articulo_acordeon.dart';
+import 'selector_foto.dart';
 
 class PedidoForm extends StatefulWidget {
   final List<Producto> productos;
@@ -33,6 +34,7 @@ class _PedidoFormState extends State<PedidoForm> {
   String? _idSeleccionado;
   String _nombreItem = '';
   DateTime _fechaEntrega = DateTime.now();
+  String? _fotoPath; // Almacenará la ruta de la foto seleccionada
   final Map<String, String?> _variantesElegidas = {};
   final Set<String> _listasVariantesAbiertas = {};
 
@@ -254,9 +256,15 @@ class _PedidoFormState extends State<PedidoForm> {
               'Agregar Notas adicionales, seña, entrega . . .',
             ),
           ),
-
           const SizedBox(height: 28),
 
+          const SizedBox(height: 18),
+          SelectorFoto(
+            rutaInicial: _fotoPath,
+            onFotoCambiada: (ruta) => setState(() => _fotoPath = ruta),
+          ),
+          const SizedBox(height: 28),
+          // Aquí continúan los botones OutlinedButton (Cancelar) y ElevatedButton (Registrar)
           Row(
             children: [
               Expanded(
@@ -416,6 +424,7 @@ class _PedidoFormState extends State<PedidoForm> {
       fechaRegistro: DateTime.now(),
       observaciones: _observacionesCtrl.text.trim(),
       estado: 'pendiente',
+      fotoPath: _fotoPath,
     );
 
     widget.onRegistrar(pedido);
@@ -430,6 +439,7 @@ class _PedidoFormState extends State<PedidoForm> {
       _variantesElegidas.clear();
       _listasVariantesAbiertas.clear();
       _fechaEntrega = DateTime.now();
+      _fotoPath = null;
     });
   }
 

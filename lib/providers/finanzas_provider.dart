@@ -247,6 +247,8 @@ class FinanzasProvider extends ChangeNotifier {
       pedidoId: pedido.id,
       cliente: pedido.cliente,
       nombreItem: pedido.nombreItem,
+      variante: pedido.variante,
+      cantidad: pedido.cantidad,
       monto: pedido.monto,
       fecha: DateTime.now().toIso8601String(),
       tipo: 'pedido',

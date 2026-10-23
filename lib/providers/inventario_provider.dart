@@ -31,6 +31,13 @@ class InventarioProvider extends ChangeNotifier {
   List<Combo> get combos => _combosFiltrados;
   Map<String, List<ComboItem>> get itemsPorCombo => _itemsPorCombo;
 
+  /// Carga todos los materiales, productos y combos de inventario desde SQLite.
+  Future<void> cargarTodo() async {
+    await cargarMateriales();
+    await cargarProductos();
+    await cargarCombos();
+  }
+
   Future<void> cargarMateriales() async {
     final db = await DBHelper.instance.database;
     final res = await db.query('materiales', where: 'visible = 1');

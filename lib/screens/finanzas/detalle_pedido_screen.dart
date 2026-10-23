@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 
 import '../../models/pedido.dart';
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
+import '../../widgets/selector_foto.dart';
 
-/// Pantalla de Detalle de Pedido con cabecera deslizable (Sliver),
-/// ficha tipo ticket y botones de acción anclados en la parte inferior.
+/// Pantalla de Detalle de Pedido.
+/// Diseño homogéneo apilado (estilo Ualá/MP) con chips de variantes,
+/// tirador de arrastre táctil y botones fijos inferiores.
 class DetallePedidoScreen extends StatefulWidget {
   final Pedido pedido;
   const DetallePedidoScreen({super.key, required this.pedido});
@@ -17,9 +20,7 @@ class DetallePedidoScreen extends StatefulWidget {
 
 class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
   late Pedido _pedidoActual;
-
-  // Ruta de imagen opcional (conectada a SQLite o nula por defecto)
-  final String? _rutaImagen = null;
+  String? get _rutaImagen => _pedidoActual.fotoPath;
 
   @override
   void initState() {
@@ -44,32 +45,30 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     return '${dt.day.toString().padLeft(2, '0')} ${meses[dt.month - 1]} ${dt.year}';
   }
 
-  // --- COMPONENTE DE SECCIÓN CLAVE-VALOR ---
-  Widget _filaDato(String etiqueta, String valor, {bool destacar = false, Color? colorValor}) {
+  // --- COMPONENTES APILADOS A ANCHO COMPLETO ---
+  Widget _bloqueDato(String etiqueta, String valor, {Color? colorValor, bool negrita = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            etiqueta,
+            etiqueta.toUpperCase(),
             style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF757575),
-              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              color: Color(0xFF9E9E9E),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Text(
-              valor,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorValor ?? const Color(0xFF212121),
-                fontWeight: destacar ? FontWeight.w800 : FontWeight.w600,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 14,
+              color: colorValor ?? const Color(0xFF212121),
+              fontWeight: negrita ? FontWeight.w700 : FontWeight.w500,
+              height: 1.3,
             ),
           ),
         ],
@@ -77,17 +76,47 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     );
   }
 
-  Widget _encabezadoSeccion(String titulo) {
+  Widget _construirChipsVariantes(String variantesTexto) {
+    final lista = variantesTexto.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
     return Padding(
-      padding: const EdgeInsets.only(top: 14, bottom: 6),
-      child: Text(
-        titulo,
-        style: const TextStyle(
-          color: Color(0xFF9E9E9E),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'VARIANTES ELEGIDAS',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9E9E9E),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: lista.map((variante) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFCE4EC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFF8BBD0)),
+                ),
+                child: Text(
+                  variante,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFC2185B),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -101,29 +130,20 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '¿Confirmar entrega?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        title: const Text('¿Confirmar entrega?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Text(
           'El pedido pasará a ENTREGADO, se registrará la venta por \$${_formatearMonto(_pedidoActual.monto)} y se descontará el stock de insumos.',
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Volver'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Volver')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE85E98),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Confirmar entrega',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Confirmar entrega', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -133,11 +153,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     await provider.entregarPedido(pedido: _pedidoActual, inventarioProvider: inv);
 
-    if (mounted) {
-      setState(() {
-        _pedidoActual.estado = 'entregado';
-      });
-    }
+    if (mounted) setState(() => _pedidoActual.estado = 'entregado');
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -155,25 +171,16 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '¿Cancelar este pedido?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        title: const Text('¿Cancelar este pedido?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: const Text(
           'El encargo pasará a estado CANCELADO. No se registrará ingreso ni se descontará stock.',
           style: TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No, volver'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, volver')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Sí, cancelar pedido',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Sí, cancelar pedido', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -181,9 +188,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
 
     if (confirmar != true) return;
 
-    setState(() {
-      _pedidoActual.estado = 'cancelado';
-    });
+    setState(() => _pedidoActual.estado = 'cancelado');
     await provider.actualizarPedido(_pedidoActual);
 
     if (!mounted) return;
@@ -200,25 +205,13 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '¿Eliminar registro?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        content: const Text(
-          'Se eliminará este pedido del sistema permanentemente.',
-          style: TextStyle(fontSize: 13),
-        ),
+        title: const Text('¿Eliminar registro?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: const Text('Se eliminará este pedido del sistema permanentemente.', style: TextStyle(fontSize: 13)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -232,12 +225,37 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     Navigator.pop(context);
   }
 
-  // --- MODAL DE EDICIÓN ELEGANTE (SIN VARIANTES) ---
+  void _verImagenCompleta(BuildContext context, String path) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Image.file(File(path)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- MODAL DE EDICIÓN LIMPIO ---
   void _mostrarModalEdicion() {
     final clienteCtrl = TextEditingController(text: _pedidoActual.cliente);
     final montoCtrl = TextEditingController(text: _pedidoActual.monto.toInt().toString());
     final obsCtrl = TextEditingController(text: _pedidoActual.observaciones);
     DateTime fechaSeleccionada = _pedidoActual.fechaEntrega;
+    String? fotoSeleccionada = _pedidoActual.fotoPath;
 
     showModalBottomSheet(
       context: context,
@@ -272,8 +290,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Cliente
               TextField(
                 controller: clienteCtrl,
                 decoration: const InputDecoration(
@@ -284,8 +300,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-
-              // Monto y Fecha en fila compartida
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -351,8 +365,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Observaciones
               TextField(
                 controller: obsCtrl,
                 maxLines: 2,
@@ -365,7 +377,13 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Botón Guardar
+              // Selector para sumar o cambiar la foto desde el ticket
+              SelectorFoto(
+                rutaInicial: fotoSeleccionada,
+                onFotoCambiada: (ruta) => setModalState(() => fotoSeleccionada = ruta),
+              ),
+              const SizedBox(height: 20),
+
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -381,6 +399,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                       _pedidoActual.monto = double.tryParse(montoCtrl.text) ?? _pedidoActual.monto;
                       _pedidoActual.observaciones = obsCtrl.text.trim();
                       _pedidoActual.fechaEntrega = fechaSeleccionada;
+                      _pedidoActual.fotoPath = fotoSeleccionada;
                     });
                     await context.read<FinanzasProvider>().actualizarPedido(_pedidoActual);
                     if (ctx.mounted) Navigator.pop(ctx);
@@ -395,14 +414,12 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     );
   }
 
-  // --- CONSTRUCCIÓN PRINCIPAL ---
   @override
   Widget build(BuildContext context) {
     final esPendiente = _pedidoActual.estado == 'pendiente';
     final esEntregado = _pedidoActual.estado == 'entregado';
     final esCancelado = _pedidoActual.estado == 'cancelado';
 
-    // Colores de badges de estado
     final Color badgeBg = esPendiente
         ? const Color(0xFFE85E98)
         : esEntregado
@@ -419,6 +436,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
+            stretch: true,
             elevation: 0,
             backgroundColor: const Color(0xFFE85E98),
             leading: Padding(
@@ -455,57 +473,80 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: _rutaImagen != null
-                  ? Image.network(_rutaImagen, fit: BoxFit.cover)
-                  : Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFFFF0F5), Color(0xFFF8BBD0)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
+              stretchModes: const [
+                StretchMode.zoomBackground,
+              ],
+              background: (_rutaImagen != null && File(_rutaImagen!).existsSync())
+                  ? GestureDetector(
+                      onTap: () => _verImagenCompleta(context, _rutaImagen!),
+                      child: Image.file(File(_rutaImagen!), fit: BoxFit.cover),
+                    )
+                : Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFFFF0F5), Color(0xFFF8BBD0)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
-                      child: Center(
-                        child: Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.auto_awesome,
-                            size: 48,
-                            color: Color(0xFFE85E98),
-                          ),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          size: 48,
+                          color: Color(0xFFE85E98),
                         ),
                       ),
                     ),
+                  ),
             ),
           ),
 
-          // 2. FICHA TÉCNICA PRINCIPAL (TICKET)
+          // 2. FICHA TÉCNICA PRINCIPAL (TICKET ELEVADO)
           SliverToBoxAdapter(
             child: Container(
-              transform: Matrix4.translationValues(0, -28, 0),
-              decoration: const BoxDecoration(
+              transform: Matrix4.translationValues(0, -24, 0),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, -6),
+                  ),
+                ],
               ),
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Badge de estado y Monto formateado
+                  // Tirador táctil central
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4.5,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0E0E0),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+
+                  // Badge de estado y Monto
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: badgeBg,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                        decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(16)),
                         child: Text(
                           _pedidoActual.estado.toUpperCase(),
                           style: TextStyle(
@@ -529,7 +570,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Nombre del Cliente
+                  // Nombre del Cliente destacado
                   Text(
                     _pedidoActual.cliente.isNotEmpty
                         ? _pedidoActual.cliente[0].toUpperCase() + _pedidoActual.cliente.substring(1)
@@ -543,66 +584,54 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                   const SizedBox(height: 12),
                   const Divider(color: Color(0xFFEEEEEE), thickness: 1),
 
-                  // SECCIÓN: FICHA DEL ARTÍCULO
-                  _encabezadoSeccion('FICHA DEL ARTÍCULO'),
-                  _filaDato('Artículo', _pedidoActual.nombreItem),
-                  _filaDato('Cantidad', '${_pedidoActual.cantidad} unidad(es)'),
+                  // Datos apilados a ancho completo
+                  _bloqueDato('Artículo encargado', _pedidoActual.nombreItem),
+                  _bloqueDato('Cantidad encargada', '${_pedidoActual.cantidad} unidad(es)'),
 
-                  // SECCIÓN: VARIANTE Y DETALLES
-                  if (_pedidoActual.variante.isNotEmpty) ...[
-                    _encabezadoSeccion('VARIANTE Y DETALLES'),
-                    _filaDato('Variante elegida', _pedidoActual.variante),
-                  ],
+                  // Variantes en pastillas / chips
+                  if (_pedidoActual.variante.isNotEmpty)
+                    _construirChipsVariantes(_pedidoActual.variante),
 
-                  // SECCIÓN: FECHAS OPERATIVAS
-                  _encabezadoSeccion('FECHAS OPERATIVAS'),
+                  // Fechas operativas apiladas
                   if (esEntregado && _pedidoActual.fechaEntregaReal != null)
-                    _filaDato(
+                    _bloqueDato(
                       'Entregado el',
                       _formatearFecha(_pedidoActual.fechaEntregaReal!),
-                      destacar: true,
                       colorValor: const Color(0xFF2E7D32),
+                      negrita: true,
                     ),
-                  _filaDato(
+
+                  _bloqueDato(
                     'Entrega pactada',
                     _formatearFecha(_pedidoActual.fechaEntrega),
-                    destacar: esPendiente,
                     colorValor: esPendiente ? const Color(0xFFE85E98) : null,
+                    negrita: esPendiente,
                   ),
-                  _filaDato(
+
+                  _bloqueDato(
                     'Encargo registrado',
                     _pedidoActual.fechaRegistro != null
                         ? _formatearFecha(_pedidoActual.fechaRegistro!)
                         : 'Fecha no registrada',
                   ),
 
-                  // SECCIÓN: OBSERVACIONES
-                  if (_pedidoActual.observaciones.isNotEmpty) ...[
-                    _encabezadoSeccion('OBSERVACIONES'),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        _pedidoActual.observaciones,
-                        style: const TextStyle(fontSize: 13, color: Color(0xFF424242), height: 1.4),
-                      ),
-                    ),
-                  ],
+                  if (_pedidoActual.observaciones.isNotEmpty)
+                    _bloqueDato('Observaciones', _pedidoActual.observaciones),
 
-                  // AVISO DE CANCELACIÓN
                   if (esCancelado) ...[
                     const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF9F9F9),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE0E0E0)),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFEEEEEE)),
                       ),
-                      child: Row(
-                        children: const [
+                      child: const Row(
+                        children: [
                           Icon(Icons.info_outline, size: 18, color: Color(0xFF757575)),
-                          SizedBox(width: 8),
+                          SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'Este encargo fue cancelado. No afectó el stock ni la caja.',
@@ -638,7 +667,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Botón principal
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -657,7 +685,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Botón secundario
                     TextButton(
                       onPressed: _cancelarPedido,
                       child: const Text(
