@@ -5,7 +5,7 @@ import '../providers/inventario_provider.dart';
 import '../providers/finanzas_provider.dart';
 import '../providers/auth_provider.dart';
 import 'auth/register_screen.dart';
-import 'auth/huella_screen.dart';
+import 'auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -46,15 +46,16 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     // Decide el destino: si ya hay un usuario registrado en este
-    // dispositivo, va directo a pedir huella. Si es la primera vez,
-    // muestra el registro.
+    // dispositivo, va a la pantalla de inicio de sesión (desde ahí puede
+    // entrar con correo/contraseña o tocar "Ingresar con Huella").
+    // Si es la primera vez, muestra el registro.
     final authProvider = context.read<AuthProvider>();
     final yaTieneUsuario = await authProvider.hayUsuarioRegistrado();
 
     if (!mounted) return;
 
     final Widget siguientePantalla =
-        yaTieneUsuario ? const HuellaScreen() : const RegisterScreen();
+        yaTieneUsuario ? const LoginScreen() : const RegisterScreen();
 
     Navigator.pushReplacement(
       context,
