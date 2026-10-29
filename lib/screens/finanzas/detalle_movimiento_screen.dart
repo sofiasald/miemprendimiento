@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 
+import '../../utils/utils.dart';
 import '../../models/venta.dart';
 import '../../models/gasto.dart';
 import '../../providers/finanzas_provider.dart';
@@ -19,28 +20,6 @@ class DetalleMovimientoScreen extends StatelessWidget {
   const DetalleMovimientoScreen.venta({super.key, required this.venta}) : gasto = null;
   const DetalleMovimientoScreen.gasto({super.key, required this.gasto}) : venta = null;
 
-  // --- FORMATEADORES VISUALES ---
-  static String _formatearMonto(double monto) {
-    final partes = monto.toInt().toString();
-    return partes.replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
-  }
-
-  static String _formatearFechaLegible(String? fechaIso) {
-    if (fechaIso == null || fechaIso.isEmpty) return 'Fecha no disponible';
-    try {
-      final dt = DateTime.parse(fechaIso);
-      final dia = dt.day.toString().padLeft(2, '0');
-      final mes = dt.month.toString().padLeft(2, '0');
-      final hora = dt.hour.toString().padLeft(2, '0');
-      final minutos = dt.minute.toString().padLeft(2, '0');
-      return '$dia/$mes/${dt.year} • $hora:$minutos hs';
-    } catch (_) {
-      return fechaIso;
-    }
-  }
 
   // --- EXTRACCIÓN SEGURA DE METADATOS DE REGISTRO ---
   String? _leerPropiedad(dynamic objeto, List<String> claves) {
@@ -347,7 +326,7 @@ class DetalleMovimientoScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${esVenta ? "+" : "-"}\$${_formatearMonto(monto)}',
+                        '${esVenta ? "+" : "-"}\$${AppUtils.formatearMonto(monto)}',
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
@@ -372,7 +351,7 @@ class DetalleMovimientoScreen extends StatelessWidget {
                   const Divider(color: Color(0xFFEEEEEE), thickness: 1),
 
                   // Datos apilados a ancho completo
-                  _bloqueDato('Fecha y hora', _formatearFechaLegible(fecha)),
+                  _bloqueDato('Fecha y hora', AppUtils.formatearFechaHora(fecha)),
                   _bloqueDato(
                     'Tipo de operación',
                     esVenta

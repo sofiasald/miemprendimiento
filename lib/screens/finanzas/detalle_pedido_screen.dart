@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 
 import '../../models/pedido.dart';
+import '../../utils/utils.dart';
 import '../../providers/finanzas_provider.dart';
 import '../../providers/inventario_provider.dart';
 import '../../widgets/selector_foto.dart';
@@ -26,23 +27,6 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
   void initState() {
     super.initState();
     _pedidoActual = widget.pedido;
-  }
-
-  // --- FORMATEADORES AUXILIARES ---
-  static String _formatearMonto(double monto) {
-    final partes = monto.toInt().toString();
-    return partes.replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
-  }
-
-  static String _formatearFecha(DateTime dt) {
-    const meses = [
-      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-    ];
-    return '${dt.day.toString().padLeft(2, '0')} ${meses[dt.month - 1]} ${dt.year}';
   }
 
   // --- COMPONENTES APILADOS A ANCHO COMPLETO ---
@@ -132,7 +116,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('¿Confirmar entrega?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Text(
-          'El pedido pasará a ENTREGADO, se registrará la venta por \$${_formatearMonto(_pedidoActual.monto)} y se descontará el stock de insumos.',
+          'El pedido pasará a ENTREGADO, se registrará la venta por \$${AppUtils.formatearMonto(_pedidoActual.monto)} y se descontará el stock de insumos.',
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -351,7 +335,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                                 const Text('Entrega pactada', style: TextStyle(color: Color(0xFF757575), fontSize: 11)),
                                 const SizedBox(height: 2),
                                 Text(
-                                  _formatearFecha(fechaSeleccionada),
+                                  AppUtils.formatearFecha(fechaSeleccionada),
                                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF212121)),
                                 ),
                               ],
@@ -558,7 +542,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                         ),
                       ),
                       Text(
-                        '\$${_formatearMonto(_pedidoActual.monto)}',
+                        '\$${AppUtils.formatearMonto(_pedidoActual.monto)}',
                         style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 26,
@@ -596,14 +580,14 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                   if (esEntregado && _pedidoActual.fechaEntregaReal != null)
                     _bloqueDato(
                       'Entregado el',
-                      _formatearFecha(_pedidoActual.fechaEntregaReal!),
+                      AppUtils.formatearFecha(_pedidoActual.fechaEntregaReal!),
                       colorValor: const Color(0xFF2E7D32),
                       negrita: true,
                     ),
 
                   _bloqueDato(
                     'Entrega pactada',
-                    _formatearFecha(_pedidoActual.fechaEntrega),
+                    AppUtils.formatearFecha(_pedidoActual.fechaEntrega),
                     colorValor: esPendiente ? const Color(0xFFE85E98) : null,
                     negrita: esPendiente,
                   ),
@@ -611,7 +595,7 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
                   _bloqueDato(
                     'Encargo registrado',
                     _pedidoActual.fechaRegistro != null
-                        ? _formatearFecha(_pedidoActual.fechaRegistro!)
+                        ? AppUtils.formatearFecha(_pedidoActual.fechaRegistro!)
                         : 'Fecha no registrada',
                   ),
 
